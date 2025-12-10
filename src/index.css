@@ -1,0 +1,73 @@
+/* ===== LIGHT MODE GLOBAL ===== */
+body {
+  background-color: #ffffff;   /* putih standar */
+  color: #000000;              /* teks hitam */
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+/* tombol default */
+button {
+  background-color: #1f2937;
+  color: white;
+  border: 1px solid #374151;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #374151;
+}
+
+/* input form */
+input {
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #ccc;
+  padding: 6px;
+  border-radius: 4px;
+}
+
+/* tabel */
+table {
+  background: #ffffff;
+  color: #000000;
+  border-collapse: collapse;
+}
+
+th {
+  background: #e5e5e5;
+  color: #000;
+}
+
+td {
+  border-color: #ccc !important;
+}
+
+/* ===== TOMBOL TAB NAVIGASI BIRU ===== */
+nav button {
+  background-color: #1d4ed8;   /* biru elegan */
+  color: white;
+  border: 1px solid #1e40af;
+  padding: 8px 16px;
+  border-radius: 6px;
+  margin-right: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+nav button:hover {
+  background-color: #1e40af;
+}
+
+nav button.active {
+  background-color: #3b82f6;   /* biru aktif */
+  border-color: #2563eb;
+  color: white;
+}
+
+/* judul */
+h1, h2, h3, h4 {
+  color: #000000;
+}

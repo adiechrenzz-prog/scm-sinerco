@@ -1,0 +1,88 @@
+/* ===============================
+   RESET DASAR
+=============================== */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ===============================
+   WRAPPER UTAMA
+=============================== */
+.scm-wrapper {
+  width: 100vw;
+  height: 100vh;
+  background: #ffffff;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===============================
+   SVG DASHBOARD
+=============================== */
+svg {
+  display: block;
+}
+
+/* ===============================
+   LINGKARAN TENGAH
+=============================== */
+.center-circle {
+  fill: #7b003f; /* maroon */
+}
+
+/* ===============================
+   TEKS TENGAH
+=============================== */
+.center-text {
+  fill: #ffffff;
+  font-size: 40px;
+  font-weight: 1000;
+  letter-spacing: 1.5px;
+  user-select: none;
+}
+
+/* ===============================
+   MENU NODE (LINGKARAN KECIL)
+=============================== */
+.menu-node circle {
+  fill: #6a1b9a;       /* UNGU */
+  cursor: pointer;
+  transition: transform 0s ease, fill 0s ease;
+}
+
+.menu-node:hover circle {
+  fill: #9c27b0;       /* UNGU LEBIH TERANG */
+  transform: scale(4.15);
+}
+
+/* ===============================
+   TEKS MENU
+=============================== */
+.menu-node text {
+  fill: #ffffff;
+  font-size: 30px;
+  font-weight: 600;
+  pointer-events: none; /* biar klik ke circle */
+  user-select: none;
+}
+
+/* ===============================
+   (OPTIONAL) SCROLLBAR OFF
+=============================== */
+::-webkit-scrollbar {
+  display: none;
+}
