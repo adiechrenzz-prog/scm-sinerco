@@ -1,43 +1,26 @@
-
 import { useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "./firebase";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 export default function KPIMaintenance() {
   const navigate = useNavigate();
 
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet([]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "KPIMaintenance");
-    XLSX.writeFile(wb, "KPIMaintenance.xlsx");
-  };
-
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("KPIMaintenance", 14, 14);
-    autoTable(doc, { head: [["Placeholder"]], body: [["Data"]] });
-    doc.save("KPIMaintenance.pdf");
-  };
-
   return (
     <div style={{ padding: 20 }}>
-      <h2>KPIMaintenance</h2>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <button onClick={() => navigate("/dashboard")}>Dashboard</button>
-        <button onClick={exportExcel}>Export Excel</button>
-        <button onClick={exportPDF}>Export PDF</button>
-        <button onClick={() => signOut(auth).then(() => navigate("/login"))}>
-          Logout
-        </button>
+      <div style={{ marginBottom: 20 }}>
+        <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>{" "}
+        <button onClick={() => navigate("/kpi-inventory")}>Inventory</button>{" "}
+        <button onClick={() => navigate("/kpi-procurement")}>Procurement</button>{" "}
+        <button onClick={() => navigate("/kpi-monthly-chart")}>Monthly Chart</button>{" "}
+        <button onClick={() => navigate("/kpi-target-actual")}>Target vs Actual</button>
       </div>
 
-      <hr />
-      <p>Template module. Siap dikembangkan.</p>
+      <h2>🛠 KPI Maintenance</h2>
+
+      <ul>
+        <li>PM Compliance (%)</li>
+        <li>Breakdown Frequency</li>
+        <li>MTTR</li>
+        <li>Maintenance Cost</li>
+      </ul>
     </div>
   );
 }
