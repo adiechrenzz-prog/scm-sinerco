@@ -1,125 +1,199 @@
 import { useEffect, useState } from "react";
 import { database } from "./firebase";
-import { ref, onValue, update } from "firebase/database";
-import { signOut } from "firebase/auth";
+import {
+  ref,
+  onValue,
+  update
+} from "firebase/database";
+
 import { auth } from "./firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+
+import * as XLSX from "xlsx";
 
 export default function ApprovalBarangKeluar() {
   const navigate = useNavigate();
-  const [data, setData] = useState([]);
+
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [permintaan, setPermintaan] = useState([]);
+  const [items, setItems] = useState([]);
 
   // ======================
-  // LOAD DATA PENDING
+  // AUTH GUARD
   // ======================
   useEffect(() => {
-    return onValue(ref(database, "barangKeluar"), (snap) => {
-      const val = snap.val() || {};
-      const arr = Object.entries(val).map(([id, v]) => ({
-        id,
-        ...v,
-      }));
-      setData(arr.filter((d) => d.status === "PENDING"));
+    return onAuthStateChanged(auth, (u) => {
+      if (!u) navigate("/login");
+      setLoadingAuth(false);
+    });
+  }, [navigate]);
+
+  // ======================
+  // LOAD INVENTORY
+  // ======================
+  useEffect(() => {
+    const r = ref(database, "items");
+    return onValue(r, (snap) => {
+      const data = snap.val() || {};
+      setItems(Object.values(data));
     });
   }, []);
 
   // ======================
+  // LOAD PERMINTAAN BARANG KELUAR
+  // ======================
+  useEffect(() => {
+    const r = ref(database, "barangKeluar");
+    return onValue(r, (snap) => {
+      const data = snap.val() || {};
+      setPermintaan(Object.values(data));
+    });
+  }, []);
+
+  if (loadingAuth) return <p>Checking login…</p>;
+
+  // ======================
   // APPROVE
   // ======================
-  const approve = (d) => {
-    if (!window.confirm("Approve barang keluar ini?")) return;
+  const approve = (p) => {
+    const item = items.find((x) => x.id === p.idItem);
+    if (!item) return alert("Barang tidak ditemukan!");
 
-    // potong stok
-    update(ref(database, "items/" + d.itemId), {
-      stok: Number(d.stokInventory) - Number(d.stok),
+    if (item.stok < p.jumlah) {
+      return alert("❌ Stok tidak cukup untuk approve!");
+    }
+
+    // KURANGI STOK
+    update(ref(database, "items/" + item.id), {
+      stok: item.stok - p.jumlah,
     });
 
-    // update status
-    update(ref(database, "barangKeluar/" + d.id), {
-      status: "APPROVED",
-      approvedBy: auth.currentUser?.email || "admin",
-      approvedAt: new Date().toISOString(),
+    // UPDATE STATUS PERMINTAAN
+    update(ref(database, "barangKeluar/" + p.id), {
+      status: "approved",
+      waktu_approve: Date.now(),
     });
+
+    alert("✔ Permintaan disetujui");
   };
 
   // ======================
   // REJECT
   // ======================
-  const reject = (d) => {
-    if (!window.confirm("Reject permintaan ini?")) return;
-
-    update(ref(database, "barangKeluar/" + d.id), {
-      status: "REJECTED",
-      approvedBy: auth.currentUser?.email || "admin",
-      approvedAt: new Date().toISOString(),
+  const reject = (p) => {
+    update(ref(database, "barangKeluar/" + p.id), {
+      status: "rejected",
+      waktu_reject: Date.now(),
     });
+
+    alert("✔ Permintaan ditolak");
+  };
+
+  // ======================
+  // EXPORT
+  // ======================
+  const exportExcel = () => {
+    const data = permintaan.map((p) => ({
+      "Nama Barang": p.nama,
+      "Jumlah": p.jumlah,
+      "Peminta": p.peminta,
+      "Tujuan": p.tujuan,
+      "Status": p.status || "pending",
+      "Waktu": new Date(p.waktu).toLocaleString(),
+      "Keterangan": p.keterangan,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Approval");
+    XLSX.writeFile(wb, "approval_barang_keluar.xlsx");
   };
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>✅ Approval Barang Keluar</h2>
+      <h2>📝 Approval Barang Keluar</h2>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+      {/* NAVIGATION */}
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          marginBottom: 12,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
+        <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>
         <button onClick={() => navigate("/inventory")}>📦 Inventory</button>
-        <button onClick={() => navigate("/barang-keluar")}>📤 Barang Keluar</button>
-        <button onClick={() => signOut(auth).then(() => navigate("/login"))}>
+        <button onClick={() => navigate("/barang-masuk")}>➕ Barang Masuk</button>
+        <button onClick={() => navigate("/barang-keluar")}>➖ Barang Keluar</button>
+        <button onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
+        <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
+        <button onClick={() => navigate("/field-inventory")}>🧭 Field Inventory</button>
+
+        <button onClick={exportExcel}>⬇ Export Excel</button>
+
+        <button
+          onClick={() => {
+            signOut(auth);
+            navigate("/login");
+          }}
+          style={{ marginLeft: "auto" }}
+        >
           Logout
         </button>
       </div>
 
       <hr />
 
+      <h3>Daftar Permintaan Barang Keluar</h3>
+
       <table border="1" width="100%" cellPadding="6">
         <thead>
           <tr>
-            <th>Part Number</th>
             <th>Nama Barang</th>
-            <th>Qty</th>
-            <th>Satuan</th>
-            <th>Tanggal</th>
+            <th>Jumlah</th>
+            <th>Peminta</th>
             <th>Tujuan</th>
-            <th>No DO</th>
+            <th>Keterangan</th>
             <th>Status</th>
+            <th>Waktu</th>
             <th>Aksi</th>
           </tr>
         </thead>
-        <tbody>
-          {data.length === 0 && (
-            <tr>
-              <td colSpan="9" align="center">
-                Tidak ada pending approval
-              </td>
-            </tr>
-          )}
 
-          {data.map((d) => (
-            <tr key={d.id}>
-              <td>{d.partnumber}</td>
-              <td>{d.nama}</td>
-              <td>{d.stok}</td>
-              <td>{d.satuan}</td>
-              <td>{d.tanggal}</td>
-              <td>{d.tujuan}</td>
-              <td>{d.noDO}</td>
-              <td>
-                <b style={{ color: "orange" }}>PENDING</b>
-              </td>
-              <td>
-                <button
-                  style={{ background: "green", color: "white" }}
-                  onClick={() => approve(d)}
-                >
-                  Approve
-                </button>{" "}
-                <button
-                  style={{ background: "red", color: "white" }}
-                  onClick={() => reject(d)}
-                >
-                  Reject
-                </button>
-              </td>
-            </tr>
-          ))}
+        <tbody>
+          {permintaan
+            .sort((a, b) => b.waktu - a.waktu)
+            .map((p) => (
+              <tr key={p.id}>
+                <td>{p.nama}</td>
+                <td>{p.jumlah}</td>
+                <td>{p.peminta}</td>
+                <td>{p.tujuan}</td>
+                <td>{p.keterangan}</td>
+                <td>
+                  {p.status === "approved"
+                    ? "✔ Approved"
+                    : p.status === "rejected"
+                    ? "❌ Rejected"
+                    : "⏳ Pending"}
+                </td>
+                <td>{new Date(p.waktu).toLocaleString()}</td>
+
+                <td>
+                  {p.status ? (
+                    "-"
+                  ) : (
+                    <>
+                      <button onClick={() => approve(p)}>Approve</button>
+                      <button onClick={() => reject(p)}>Reject</button>
+                    </>
+                  )}
+                </td>
+              </tr>
+            ))}
         </tbody>
       </table>
     </div>

@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 
 import Login from "./Login";
 import DashboardSCMCircle from "./DashboardSCMCircle";
+import ResetDatabase from "./ResetDatabase";
+
 
 /* ================= 1️⃣ INVENTORY ================= */
 import Inventory from "./Inventory";
@@ -202,6 +204,8 @@ export default function App() {
       <Route path="/kpi-maintenance" element={<KPIMaintenance />} />
       <Route path="/kpi-monthly-chart" element={<KPIMonthlyChart />} />
       <Route path="/kpi-target-actual" element={<KPITargetActual />} />
+<Route path="/reset-database" element={<ResetDatabase />} />
+
 
       {/* DEFAULT */}
       <Route path="/" element={<Navigate to="/dashboard" />} />
