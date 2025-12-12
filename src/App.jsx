@@ -55,6 +55,9 @@ import StockOpnameWorkshop from "./StockOpnameWorkshop";
 import StockOpnameField from "./StockOpnameField";
 import StockVariance from "./StockVariance";
 import StockOpnameReport from "./StockOpnameReport";
+import OpnameDetail from "./OpnameDetail";
+
+
 
 /* ================= 7️⃣ OIL CONSUMPTION ================= */
 import OilUsage from "./OilUsage";
@@ -219,6 +222,8 @@ export default function App() {
       <Route path="/kpi-monthly-chart" element={<KPIMonthlyChart />} />
       <Route path="/kpi-target-actual" element={<KPITargetActual />} />
 <Route path="/reset-database" element={<ResetDatabase />} />
+<Route path="/opname-detail" element={<OpnameDetail />} />
+
 
 
       {/* DEFAULT */}
