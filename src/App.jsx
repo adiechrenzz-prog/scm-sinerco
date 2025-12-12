@@ -13,6 +13,12 @@ import ApprovalBarangKeluar from "./ApprovalBarangKeluar";
 import SisaStok from "./SisaStok";
 import StockOpname from "./StockOpname";
 import FieldInventory from "./FieldInventory";
+/* ================= MASTER DATA BARU ================= */
+import DataPart from "./DataPart";
+import Supplier from "./Supplier";
+import Peminta from "./Peminta";
+import Tujuan from "./Tujuan";
+
 
 /* ================= 2️⃣ INSTRUMENT CALIBRATION ================= */
 import InstrumentList from "./InstrumentList";
@@ -114,9 +120,15 @@ export default function App() {
       <Route path="/barang-masuk" element={<BarangMasuk />} />
       <Route path="/barang-keluar" element={<BarangKeluar />} />
       <Route path="/approval-barang-keluar" element={<ApprovalBarangKeluar />} />
-      <Route path="/sisa-stock" element={<SisaStok />} />
+      <Route path="/sisa-stok" element={<SisaStok />} />
       <Route path="/stock-opname" element={<StockOpname />} />
       <Route path="/field-inventory" element={<FieldInventory />} />
+      <Route path="/data-part" element={<DataPart />} />
+
+      <Route path="/supplier" element={<Supplier />} />
+      <Route path="/peminta" element={<Peminta />} />
+      <Route path="/tujuan" element={<Tujuan />} />
+
 
       {/* ===== INSTRUMENT CALIBRATION ===== */}
       <Route path="/instrument-list" element={<InstrumentList />} />

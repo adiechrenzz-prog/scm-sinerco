@@ -15,6 +15,9 @@ export default function Inventory() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [items, setItems] = useState([]);
 
+  const [spareparts, setSpareparts] = useState([]); // master sparepart
+  const [searchText, setSearchText] = useState("");
+
   const [form, setForm] = useState({
     partnumber: "",
     nama: "",
@@ -27,9 +30,9 @@ export default function Inventory() {
 
   const [editId, setEditId] = useState(null);
 
-  // ======================
+  // ====================================
   // AUTH GUARD
-  // ======================
+  // ====================================
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
       if (!u) navigate("/login");
@@ -37,29 +40,52 @@ export default function Inventory() {
     });
   }, [navigate]);
 
-  // ======================
-  // LOAD DATA FIREBASE
-  // ======================
+  // ====================================
+  // LOAD INVENTORY
+  // ====================================
   useEffect(() => {
     const r = ref(database, "items");
     return onValue(r, (snap) => {
       const data = snap.val() || {};
-      const arr = Object.values(data).filter((i) => i.partnumber && i.nama);
-      setItems(arr);
+      setItems(Object.values(data));
+    });
+  }, []);
+
+  // ====================================
+  // LOAD MASTER SPAREPART
+  // ====================================
+  useEffect(() => {
+    const r = ref(database, "datasparepart");
+    return onValue(r, (snap) => {
+      const data = snap.val() || {};
+      setSpareparts(Object.values(data));
     });
   }, []);
 
   if (loadingAuth) return <p>Checking login...</p>;
 
-  //======================
-  // INPUT HANDLER
-  //======================
+  // ====================================
+  // HANDLE INPUT FORM
+  // ====================================
   const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
-  //======================
+  // ====================================
+  // APPLY MASTER SPAREPART (AUTO HARGA)
+  // ====================================
+  const applySparepart = (sp) => {
+    setForm({
+      ...form,
+      partnumber: sp.partnumber,
+      nama: sp.nama,
+      harga: sp.harga || 0, // 🌟 ambil harga otomatis
+    });
+    setSearchText("");
+  };
+
+  // ====================================
   // SAVE ITEM
-  //======================
+  // ====================================
   const saveItem = () => {
     if (!form.partnumber || !form.nama) {
       alert("Part Number & Nama wajib");
@@ -105,9 +131,9 @@ export default function Inventory() {
     setForm(i);
   };
 
-  // ======================
+  // ====================================
   // EXPORT EXCEL
-  // ======================
+  // ====================================
   const exportExcel = () => {
     const data = items.map((i) => ({
       "Part Number": i.partnumber,
@@ -115,6 +141,7 @@ export default function Inventory() {
       Stok: i.stok,
       Satuan: i.satuan,
       Harga: i.harga,
+      "Total Harga": i.stok * i.harga,
       Gudang: i.gudang,
       Rack: i.rack,
     }));
@@ -125,9 +152,9 @@ export default function Inventory() {
     XLSX.writeFile(wb, "inventory.xlsx");
   };
 
-  // ======================
-  // IMPORT EXCEL — ANTI DATA KOSONG
-  // ======================
+  // ====================================
+  // IMPORT EXCEL
+  // ====================================
   const importExcel = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -152,7 +179,7 @@ export default function Inventory() {
           set(ref(database, "items/" + id), {
             id,
             partnumber: pn,
-            nama: nama,
+            nama,
             stok: Number(row["Stok"]) || 0,
             satuan: row["Satuan"] || "",
             harga: Number(row["Harga"]) || 0,
@@ -161,19 +188,36 @@ export default function Inventory() {
           });
         });
 
-        alert("✅ Import Excel BERHASIL");
+        alert("Import berhasil!");
         e.target.value = "";
       } catch (err) {
         console.error(err);
-        alert("❌ File Excel rusak atau format salah");
+        alert("File Excel rusak!");
       }
     };
 
     reader.readAsArrayBuffer(file);
   };
 
+  // ====================================
+  // FILTER SPAREPART SEARCH
+  // ====================================
+  const filteredSpareparts = spareparts.filter(
+    (s) =>
+      s.partnumber.toLowerCase().includes(searchText.toLowerCase()) ||
+      s.nama.toLowerCase().includes(searchText.toLowerCase())
+  );
+
   const sortedItems = [...items].sort(
     (a, b) => Number(a.partnumber) - Number(b.partnumber)
+  );
+
+  // ====================================
+  // TOTAL SUM HARGA
+  // ====================================
+  const totalSum = sortedItems.reduce(
+    (acc, item) => acc + Number(item.stok) * Number(item.harga),
+    0
   );
 
   return (
@@ -199,19 +243,15 @@ export default function Inventory() {
         <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
         <button onClick={() => navigate("/field-inventory")}>🧭 Field Inventory</button>
 
-        <button onClick={() => fileInputRef.current.click()}>
-          ⬆️ Import Excel
-        </button>
+        <button onClick={() => navigate("/data-part")}>🛠 Sparepart</button>
+        <button onClick={() => navigate("/supplier")}>🏬 Supplier</button>
+        <button onClick={() => navigate("/peminta")}>👤 Peminta</button>
+        <button onClick={() => navigate("/tujuan")}>🎯 Tujuan</button>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".xlsx,.xls"
-          style={{ display: "none" }}
-          onChange={importExcel}
-        />
+        <button onClick={() => fileInputRef.current.click()}>⬆ Import Excel</button>
+        <input ref={fileInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={importExcel} />
 
-        <button onClick={exportExcel}>⬇️ Export Excel</button>
+        <button onClick={exportExcel}>⬇ Export Excel</button>
 
         <button
           onClick={() => {
@@ -226,6 +266,37 @@ export default function Inventory() {
 
       <hr />
 
+      {/* SEARCH SPAREPART */}
+      <h3>Cari Sparepart</h3>
+      <input
+        placeholder="Search Part Number / Nama Barang"
+        value={searchText}
+        onChange={(e) => setSearchText(e.target.value)}
+        style={{ width: "40%", marginBottom: 10 }}
+      />
+
+      {searchText && (
+        <div style={{ border: "1px solid #aaa", padding: 10, width: "40%", background: "#f7f7f7" }}>
+          {filteredSpareparts.length === 0 && <p>Tidak ditemukan...</p>}
+
+          {filteredSpareparts.map((sp) => (
+            <div
+              key={sp.id}
+              onClick={() => applySparepart(sp)}
+              style={{
+                padding: 5,
+                cursor: "pointer",
+                borderBottom: "1px solid #ddd",
+              }}
+            >
+              <b>{sp.partnumber}</b> — {sp.nama} — Rp {sp.harga}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <hr />
+
       {/* FORM INPUT */}
       <h3>{editId ? "Edit Barang" : "Tambah Barang"}</h3>
 
@@ -233,7 +304,7 @@ export default function Inventory() {
       <input name="nama" placeholder="Nama Barang" value={form.nama} onChange={handleChange} />
       <input name="stok" type="number" placeholder="Stok" value={form.stok} onChange={handleChange} />
       <input name="satuan" placeholder="Satuan" value={form.satuan} onChange={handleChange} />
-      <input name="harga" type="number" placeholder="Harga" value={form.harga} onChange={handleChange} />
+      <input name="harga" type="number" placeholder="Harga Satuan" value={form.harga} onChange={handleChange} />
       <input name="gudang" placeholder="Gudang" value={form.gudang} onChange={handleChange} />
       <input name="rack" placeholder="Rack" value={form.rack} onChange={handleChange} />
 
@@ -251,6 +322,7 @@ export default function Inventory() {
             <th>Stok</th>
             <th>Satuan</th>
             <th>Harga</th>
+            <th>Total Harga</th>
             <th>Gudang</th>
             <th>Rack</th>
             <th>Aksi</th>
@@ -265,6 +337,7 @@ export default function Inventory() {
               <td>{i.stok}</td>
               <td>{i.satuan}</td>
               <td>{i.harga}</td>
+              <td>{Number(i.stok) * Number(i.harga)}</td>
               <td>{i.gudang}</td>
               <td>{i.rack}</td>
 
@@ -276,6 +349,10 @@ export default function Inventory() {
           ))}
         </tbody>
       </table>
+
+      <h3 style={{ marginTop: 20 }}>
+        💰 TOTAL SEMUA BARANG: <b>Rp {totalSum.toLocaleString()}</b>
+      </h3>
     </div>
   );
 }

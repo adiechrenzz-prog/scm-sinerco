@@ -1,12 +1,6 @@
 import { useEffect, useState } from "react";
 import { database } from "./firebase";
-import {
-  ref,
-  onValue,
-  push,
-  set,
-  update
-} from "firebase/database";
+import { ref, onValue, push, update, remove } from "firebase/database";
 
 import { auth } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
@@ -16,22 +10,27 @@ import * as XLSX from "xlsx";
 
 export default function BarangKeluar() {
   const navigate = useNavigate();
-
   const [loadingAuth, setLoadingAuth] = useState(true);
+
   const [items, setItems] = useState([]);
   const [history, setHistory] = useState([]);
 
   const [form, setForm] = useState({
-    idItem: "",
+    partnumber: "",
+    nama: "",
     jumlah: "",
-    tujuan: "",
     peminta: "",
+    tujuan: "",
+    doNumber: "",
     keterangan: "",
+    status: "pending",
   });
 
-  // ======================
-  // AUTH GUARD
-  // ======================
+  const [editId, setEditId] = useState(null);
+
+  /* ======================
+      AUTH GUARD
+  ====================== */
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
       if (!u) navigate("/login");
@@ -39,103 +38,133 @@ export default function BarangKeluar() {
     });
   }, [navigate]);
 
-  // ======================
-  // LOAD INVENTORY
-  // ======================
+  /* ======================
+      LOAD INVENTORY
+  ====================== */
   useEffect(() => {
     const r = ref(database, "items");
     return onValue(r, (snap) => {
-      const data = snap.val() || {};
-      setItems(Object.values(data));
+      const d = snap.val() || {};
+      setItems(Object.values(d));
     });
   }, []);
 
-  // ======================
-  // LOAD HISTORY BARANG KELUAR
-  // ======================
+  /* ======================
+      LOAD HISTORY
+  ====================== */
   useEffect(() => {
     const r = ref(database, "barangKeluar");
     return onValue(r, (snap) => {
-      const data = snap.val() || {};
-      setHistory(Object.values(data));
+      const d = snap.val() || {};
+      setHistory(Object.values(d));
     });
   }, []);
 
-  if (loadingAuth) return <p>Checking login…</p>;
+  if (loadingAuth) return <p>Checking login...</p>;
 
-  // INPUT HANDLER
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  /* ======================
+      INPUT HANDLER
+  ====================== */
+  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
-  // ======================
-  // SIMPAN BARANG KELUAR
-  // ======================
-  const simpanBarangKeluar = () => {
-    if (!form.idItem || !form.jumlah || !form.peminta) {
-      alert("Isi item, jumlah, & peminta!");
+  /* ======================
+      SAVE DATA BARANG KELUAR
+  ====================== */
+  const saveData = async () => {
+    if (!form.partnumber || !form.jumlah) {
+      alert("Part Number & Jumlah wajib diisi!");
       return;
     }
 
-    const selected = items.find((x) => x.id === form.idItem);
-    if (!selected) {
-      alert("Item tidak ditemukan!");
-      return;
+    const jumlahBaru = Number(form.jumlah);
+
+    if (editId) {
+      // Ambil data lama untuk menghitung selisih stok
+      const lama = history.find((h) => h.id === editId);
+      const barang = items.find((i) => i.partnumber === form.partnumber);
+
+      // Jika sudah approved sebelumnya → hitung koreksi stok
+      if (barang && lama.status === "approved") {
+        const stokBaru =
+          Number(barang.stok) + Number(lama.jumlah) - jumlahBaru;
+
+        await update(ref(database, "items/" + barang.id), {
+          stok: stokBaru,
+        });
+      }
+
+      // Update riwayat
+      await update(ref(database, "barangKeluar/" + editId), {
+        ...form,
+        jumlah: jumlahBaru,
+      });
+
+      setEditId(null);
+    } else {
+      // BARU DIBUAT = belum approved → stok belum berubah
+      const id = push(ref(database, "barangKeluar")).key;
+
+      await update(ref(database, "barangKeluar/" + id), {
+        id,
+        ...form,
+        jumlah: jumlahBaru,
+        waktu: new Date().toLocaleString(),
+        status: "pending",
+      });
     }
-
-    const jumlah = Number(form.jumlah);
-
-    if (jumlah <= 0) {
-      alert("Jumlah harus lebih dari 0");
-      return;
-    }
-
-    if (selected.stok < jumlah) {
-      alert("❌ Stok tidak cukup!");
-      return;
-    }
-
-    const newStok = selected.stok - jumlah;
-
-    // Kurangi stok inventory
-    update(ref(database, "items/" + selected.id), {
-      stok: newStok,
-    });
-
-    // Simpan ke history
-    const id = push(ref(database, "barangKeluar")).key;
-    set(ref(database, "barangKeluar/" + id), {
-      id,
-      idItem: selected.id,
-      nama: selected.nama,
-      jumlah: jumlah,
-      tujuan: form.tujuan || "",
-      peminta: form.peminta,
-      keterangan: form.keterangan || "",
-      waktu: Date.now(),
-    });
-
-    alert("✔ Barang Keluar berhasil disimpan");
 
     setForm({
-      idItem: "",
+      partnumber: "",
+      nama: "",
       jumlah: "",
-      tujuan: "",
       peminta: "",
+      tujuan: "",
+      doNumber: "",
       keterangan: "",
+      status: "pending",
     });
   };
 
-  // ======================
-  // EXPORT HISTORY
-  // ======================
+  /* ======================
+      EDIT
+  ====================== */
+  const editRow = (row) => {
+    setEditId(row.id);
+    setForm(row);
+  };
+
+  /* ======================
+      HAPUS + KOREKSI STOK
+  ====================== */
+  const deleteRow = async (row) => {
+    if (!window.confirm("Hapus permintaan ini?")) return;
+
+    const barang = items.find((i) => i.partnumber === row.partnumber);
+
+    // Jika sudah approved → stok harus dikembalikan
+    if (barang && row.status === "approved") {
+      const stokBaru = Number(barang.stok) + Number(row.jumlah);
+
+      await update(ref(database, "items/" + barang.id), { stok: stokBaru });
+    }
+
+    remove(ref(database, "barangKeluar/" + row.id));
+  };
+
+  /* ======================
+      EXPORT EXCEL
+  ====================== */
   const exportExcel = () => {
     const data = history.map((h) => ({
+      "Part Number": h.partnumber,
       "Nama Barang": h.nama,
-      "Jumlah Keluar": h.jumlah,
-      "Tujuan": h.tujuan,
-      "Peminta": h.peminta,
-      "Waktu": new Date(h.waktu).toLocaleString(),
-      "Keterangan": h.keterangan,
+      Jumlah: h.jumlah,
+      "No. DO": h.doNumber,
+      Peminta: h.peminta,
+      Tujuan: h.tujuan,
+      Status: h.status,
+      Waktu: h.waktu,
+      Keterangan: h.keterangan,
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -148,16 +177,8 @@ export default function BarangKeluar() {
     <div style={{ padding: 20 }}>
       <h2>➖ Barang Keluar</h2>
 
-      {/* NAVIGATION BAR */}
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          marginBottom: 12,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
+      {/* NAVIGATION */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
         <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>
         <button onClick={() => navigate("/inventory")}>📦 Inventory</button>
         <button onClick={() => navigate("/barang-masuk")}>➕ Barang Masuk</button>
@@ -165,7 +186,6 @@ export default function BarangKeluar() {
         <button onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
         <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
         <button onClick={() => navigate("/field-inventory")}>🧭 Field Inventory</button>
-
         <button onClick={exportExcel}>⬇ Export Excel</button>
 
         <button
@@ -181,83 +201,76 @@ export default function BarangKeluar() {
 
       <hr />
 
-      {/* FORM INPUT */}
-      <h3>Input Barang Keluar</h3>
+      {/* FORM */}
+      <h3>{editId ? "Edit Permintaan Barang Keluar" : "Input Permintaan Barang Keluar"}</h3>
 
       <select
-        name="idItem"
-        value={form.idItem}
-        onChange={handleChange}
+        name="partnumber"
+        value={form.partnumber}
+        onChange={(e) => {
+          const pn = e.target.value;
+          const barang = items.find((i) => i.partnumber === pn);
+          setForm({
+            ...form,
+            partnumber: pn,
+            nama: barang?.nama || "",
+          });
+        }}
       >
         <option value="">Pilih Barang</option>
         {items.map((i) => (
-          <option key={i.id} value={i.id}>
-            {i.partnumber} - {i.nama} (stok: {i.stok})
+          <option key={i.id} value={i.partnumber}>
+            {i.partnumber} — {i.nama}
           </option>
         ))}
       </select>
 
-      <input
-        name="jumlah"
-        type="number"
-        placeholder="Jumlah Keluar"
-        value={form.jumlah}
-        onChange={handleChange}
-      />
+      <input disabled value={form.nama} placeholder="Nama Barang" />
+      <input name="jumlah" placeholder="Jumlah" value={form.jumlah} onChange={onChange} />
+      <input name="doNumber" placeholder="No. DO" value={form.doNumber} onChange={onChange} />
+      <input name="peminta" placeholder="Peminta" value={form.peminta} onChange={onChange} />
+      <input name="tujuan" placeholder="Tujuan" value={form.tujuan} onChange={onChange} />
+      <input name="keterangan" placeholder="Keterangan" value={form.keterangan} onChange={onChange} />
 
-      <input
-        name="peminta"
-        placeholder="Peminta"
-        value={form.peminta}
-        onChange={handleChange}
-      />
-
-      <input
-        name="tujuan"
-        placeholder="Tujuan"
-        value={form.tujuan}
-        onChange={handleChange}
-      />
-
-      <input
-        name="keterangan"
-        placeholder="Keterangan"
-        value={form.keterangan}
-        onChange={handleChange}
-      />
-
-      <button onClick={simpanBarangKeluar}>Simpan</button>
+      <button onClick={saveData}>{editId ? "Update" : "Simpan"}</button>
 
       <hr />
 
-      {/* TABEL HISTORY */}
-      <h3>Riwayat Barang Keluar</h3>
-
-      <table border="1" cellPadding="6" width="100%">
+      {/* TABLE */}
+      <table border="1" width="100%" cellPadding="6">
         <thead>
           <tr>
-            <th>Nama Barang</th>
+            <th>Part Number</th>
+            <th>Nama</th>
             <th>Jumlah</th>
+            <th>No. DO</th>
             <th>Peminta</th>
             <th>Tujuan</th>
+            <th>Status</th>
             <th>Waktu</th>
             <th>Keterangan</th>
+            <th>Aksi</th>
           </tr>
         </thead>
 
         <tbody>
-          {history
-            .sort((a, b) => b.waktu - a.waktu)
-            .map((h) => (
-              <tr key={h.id}>
-                <td>{h.nama}</td>
-                <td>{h.jumlah}</td>
-                <td>{h.peminta}</td>
-                <td>{h.tujuan}</td>
-                <td>{new Date(h.waktu).toLocaleString()}</td>
-                <td>{h.keterangan}</td>
-              </tr>
-            ))}
+          {history.map((h) => (
+            <tr key={h.id}>
+              <td>{h.partnumber}</td>
+              <td>{h.nama}</td>
+              <td>{h.jumlah}</td>
+              <td>{h.doNumber}</td>
+              <td>{h.peminta}</td>
+              <td>{h.tujuan}</td>
+              <td>{h.status}</td>
+              <td>{h.waktu}</td>
+              <td>{h.keterangan}</td>
+              <td>
+                <button onClick={() => editRow(h)}>Edit</button>
+                <button onClick={() => deleteRow(h)}>Hapus</button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

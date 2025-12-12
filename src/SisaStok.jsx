@@ -30,21 +30,21 @@ export default function SisaStok() {
     const r = ref(database, "items");
     return onValue(r, (snap) => {
       const data = snap.val() || {};
-      const list = Object.values(data);
-      setItems(list);
+      const arr = Object.values(data);
+      setItems(arr);
     });
   }, []);
 
   if (loadingAuth) return <p>Checking login…</p>;
 
   // ======================
-  // EXPORT EXCEL LAPORAN
+  // EXPORT EXCEL
   // ======================
   const exportExcel = () => {
     const data = items.map((i) => ({
       "Part Number": i.partnumber,
       "Nama Barang": i.nama,
-      "Stok Tersedia": i.stok,
+      Stok: i.stok,
       Satuan: i.satuan,
       Gudang: i.gudang,
       Rack: i.rack,
@@ -56,7 +56,9 @@ export default function SisaStok() {
     XLSX.writeFile(wb, "sisa_stok.xlsx");
   };
 
-  // SORT
+  // ======================
+  // SORTING
+  // ======================
   const sorted = [...items].sort(
     (a, b) => Number(a.partnumber) - Number(b.partnumber)
   );
@@ -65,13 +67,14 @@ export default function SisaStok() {
     <div style={{ padding: 20 }}>
       <h2>📊 Laporan Sisa Stok</h2>
 
-      {/* NAVIGATION */}
+      {/* NAVBAR */}
       <div
         style={{
           display: "flex",
           gap: 10,
           marginBottom: 12,
           flexWrap: "wrap",
+          alignItems: "center",
         }}
       >
         <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>
@@ -79,10 +82,11 @@ export default function SisaStok() {
         <button onClick={() => navigate("/barang-masuk")}>➕ Barang Masuk</button>
         <button onClick={() => navigate("/barang-keluar")}>➖ Barang Keluar</button>
         <button onClick={() => navigate("/approval-barang-keluar")}>📝 Approval</button>
+        <button onClick={() => navigate("/sisa-stock")}>📊 Sisa Stok</button>
         <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
         <button onClick={() => navigate("/field-inventory")}>🧭 Field Inventory</button>
 
-        <button onClick={exportExcel}>⬇ Export Excel</button>
+        <button onClick={exportExcel}>⬇️ Export Excel</button>
 
         <button
           onClick={() => {

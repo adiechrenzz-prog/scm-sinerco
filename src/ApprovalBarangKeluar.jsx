@@ -1,23 +1,17 @@
 import { useEffect, useState } from "react";
 import { database } from "./firebase";
-import {
-  ref,
-  onValue,
-  update
-} from "firebase/database";
+import { ref, onValue, update } from "firebase/database";
 
 import { auth } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
-import * as XLSX from "xlsx";
-
 export default function ApprovalBarangKeluar() {
   const navigate = useNavigate();
-
   const [loadingAuth, setLoadingAuth] = useState(true);
-  const [permintaan, setPermintaan] = useState([]);
+
   const [items, setItems] = useState([]);
+  const [history, setHistory] = useState([]);
 
   // ======================
   // AUTH GUARD
@@ -30,13 +24,13 @@ export default function ApprovalBarangKeluar() {
   }, [navigate]);
 
   // ======================
-  // LOAD INVENTORY
+  // LOAD INVENTORY ITEMS
   // ======================
   useEffect(() => {
     const r = ref(database, "items");
     return onValue(r, (snap) => {
-      const data = snap.val() || {};
-      setItems(Object.values(data));
+      const d = snap.val() || {};
+      setItems(Object.values(d));
     });
   }, []);
 
@@ -46,68 +40,89 @@ export default function ApprovalBarangKeluar() {
   useEffect(() => {
     const r = ref(database, "barangKeluar");
     return onValue(r, (snap) => {
-      const data = snap.val() || {};
-      setPermintaan(Object.values(data));
+      const d = snap.val() || {};
+      setHistory(Object.values(d));
     });
   }, []);
 
-  if (loadingAuth) return <p>Checking login…</p>;
+  if (loadingAuth) return <p>Checking login...</p>;
 
   // ======================
-  // APPROVE
+  // APPROVE — Kurangi stok
   // ======================
-  const approve = (p) => {
-    const item = items.find((x) => x.id === p.idItem);
-    if (!item) return alert("Barang tidak ditemukan!");
+  const approve = async (row) => {
+    if (!window.confirm("Setujui permintaan ini?")) return;
 
-    if (item.stok < p.jumlah) {
-      return alert("❌ Stok tidak cukup untuk approve!");
+    const barang = items.find((i) => i.partnumber === row.partnumber);
+    if (!barang) return alert("Barang tidak ditemukan!");
+
+    const jumlah = Number(row.jumlah);
+
+    // Hanya kurangi stok jika sebelumnya status bukan approved
+    if (row.status !== "approved") {
+      const stokBaru = Number(barang.stok) - jumlah;
+
+      if (stokBaru < 0) return alert("Stok tidak cukup!");
+
+      await update(ref(database, "items/" + barang.id), {
+        stok: stokBaru,
+      });
     }
 
-    // KURANGI STOK
-    update(ref(database, "items/" + item.id), {
-      stok: item.stok - p.jumlah,
-    });
-
-    // UPDATE STATUS PERMINTAAN
-    update(ref(database, "barangKeluar/" + p.id), {
+    await update(ref(database, "barangKeluar/" + row.id), {
       status: "approved",
-      waktu_approve: Date.now(),
+      waktuApprove: new Date().toLocaleString(),
     });
-
-    alert("✔ Permintaan disetujui");
   };
 
   // ======================
-  // REJECT
+  // SET KE PENDING → Kembalikan stok jika sebelumnya approved
   // ======================
-  const reject = (p) => {
-    update(ref(database, "barangKeluar/" + p.id), {
+  const setPending = async (row) => {
+    if (!window.confirm("Kembalikan status menjadi pending?")) return;
+
+    const barang = items.find((i) => i.partnumber === row.partnumber);
+    if (!barang) return alert("Barang tidak ditemukan!");
+
+    const jumlah = Number(row.jumlah);
+
+    // Jika sebelumnya approved → balikan stok
+    if (row.status === "approved") {
+      const stokBaru = Number(barang.stok) + jumlah;
+
+      await update(ref(database, "items/" + barang.id), {
+        stok: stokBaru,
+      });
+    }
+
+    await update(ref(database, "barangKeluar/" + row.id), {
+      status: "pending",
+    });
+  };
+
+  // ======================
+  // REJECT — Jika sebelumnya approved stok dikembalikan
+  // ======================
+  const reject = async (row) => {
+    if (!window.confirm("Tolak permintaan ini?")) return;
+
+    const barang = items.find((i) => i.partnumber === row.partnumber);
+    if (!barang) return alert("Barang tidak ditemukan!");
+
+    const jumlah = Number(row.jumlah);
+
+    // Jika sebelumnya approved → kembalikan stok
+    if (row.status === "approved") {
+      const stokBaru = Number(barang.stok) + jumlah;
+
+      await update(ref(database, "items/" + barang.id), {
+        stok: stokBaru,
+      });
+    }
+
+    await update(ref(database, "barangKeluar/" + row.id), {
       status: "rejected",
-      waktu_reject: Date.now(),
     });
-
-    alert("✔ Permintaan ditolak");
-  };
-
-  // ======================
-  // EXPORT
-  // ======================
-  const exportExcel = () => {
-    const data = permintaan.map((p) => ({
-      "Nama Barang": p.nama,
-      "Jumlah": p.jumlah,
-      "Peminta": p.peminta,
-      "Tujuan": p.tujuan,
-      "Status": p.status || "pending",
-      "Waktu": new Date(p.waktu).toLocaleString(),
-      "Keterangan": p.keterangan,
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Approval");
-    XLSX.writeFile(wb, "approval_barang_keluar.xlsx");
   };
 
   return (
@@ -115,15 +130,7 @@ export default function ApprovalBarangKeluar() {
       <h2>📝 Approval Barang Keluar</h2>
 
       {/* NAVIGATION */}
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          marginBottom: 12,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
+      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
         <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>
         <button onClick={() => navigate("/inventory")}>📦 Inventory</button>
         <button onClick={() => navigate("/barang-masuk")}>➕ Barang Masuk</button>
@@ -131,8 +138,6 @@ export default function ApprovalBarangKeluar() {
         <button onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
         <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
         <button onClick={() => navigate("/field-inventory")}>🧭 Field Inventory</button>
-
-        <button onClick={exportExcel}>⬇ Export Excel</button>
 
         <button
           onClick={() => {
@@ -147,16 +152,15 @@ export default function ApprovalBarangKeluar() {
 
       <hr />
 
-      <h3>Daftar Permintaan Barang Keluar</h3>
-
+      {/* TABLE */}
       <table border="1" width="100%" cellPadding="6">
         <thead>
           <tr>
+            <th>Part Number</th>
             <th>Nama Barang</th>
             <th>Jumlah</th>
             <th>Peminta</th>
             <th>Tujuan</th>
-            <th>Keterangan</th>
             <th>Status</th>
             <th>Waktu</th>
             <th>Aksi</th>
@@ -164,36 +168,41 @@ export default function ApprovalBarangKeluar() {
         </thead>
 
         <tbody>
-          {permintaan
-            .sort((a, b) => b.waktu - a.waktu)
-            .map((p) => (
-              <tr key={p.id}>
-                <td>{p.nama}</td>
-                <td>{p.jumlah}</td>
-                <td>{p.peminta}</td>
-                <td>{p.tujuan}</td>
-                <td>{p.keterangan}</td>
-                <td>
-                  {p.status === "approved"
-                    ? "✔ Approved"
-                    : p.status === "rejected"
-                    ? "❌ Rejected"
-                    : "⏳ Pending"}
-                </td>
-                <td>{new Date(p.waktu).toLocaleString()}</td>
+          {history.map((row) => (
+            <tr key={row.id}>
+              <td>{row.partnumber}</td>
+              <td>{row.nama}</td>
+              <td>{row.jumlah}</td>
+              <td>{row.peminta}</td>
+              <td>{row.tujuan}</td>
+              <td>{row.status}</td>
+              <td>{row.waktu}</td>
 
-                <td>
-                  {p.status ? (
-                    "-"
-                  ) : (
-                    <>
-                      <button onClick={() => approve(p)}>Approve</button>
-                      <button onClick={() => reject(p)}>Reject</button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
+              <td>
+                {/* APPROVE */}
+                {row.status !== "approved" && (
+                  <button onClick={() => approve(row)}>Approve</button>
+                )}
+
+                {/* PENDING */}
+                {row.status === "approved" && (
+                  <button onClick={() => setPending(row)}>Set Pending</button>
+                )}
+
+                {/* REJECT */}
+                {row.status !== "rejected" && (
+                  <button onClick={() => reject(row)}>Reject</button>
+                )}
+
+                {/* EDIT (Hanya jika pending) */}
+                {row.status === "pending" && (
+                  <button onClick={() => navigate("/barang-keluar?edit=" + row.id)}>
+                    Edit
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
