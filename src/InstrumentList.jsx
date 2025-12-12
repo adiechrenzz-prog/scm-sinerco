@@ -10,12 +10,8 @@ import "jspdf-autotable";
 export default function InstrumentList() {
   const navigate = useNavigate();
 
-  // ======================
-  // STATE
-  // ======================
   const [data, setData] = useState([]);
   const [editMode, setEditMode] = useState(false);
-
   const [search, setSearch] = useState("");
 
   const [form, setForm] = useState({
@@ -32,9 +28,7 @@ export default function InstrumentList() {
     status: "OK",
   });
 
-  // ======================
   // LOAD DATA
-  // ======================
   useEffect(() => {
     const r = ref(database, "instrumentList");
     return onValue(r, (snap) => {
@@ -43,9 +37,7 @@ export default function InstrumentList() {
     });
   }, []);
 
-  // ======================
-  // HANDLER
-  // ======================
+  // CHANGE HANDLER
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -67,9 +59,7 @@ export default function InstrumentList() {
     setEditMode(false);
   };
 
-  // ======================
-  // SAVE / UPDATE
-  // ======================
+  // SAVE DATA
   const saveData = () => {
     if (!form.id || !form.instrument) {
       alert("No. Unit & Nama Instrument wajib diisi");
@@ -87,26 +77,20 @@ export default function InstrumentList() {
     resetForm();
   };
 
-  // ======================
   // EDIT
-  // ======================
   const editData = (item) => {
     setForm(item);
     setEditMode(true);
   };
 
-  // ======================
   // DELETE
-  // ======================
   const deleteData = (id) => {
     if (window.confirm("Hapus instrument ini?")) {
       remove(ref(database, "instrumentList/" + id));
     }
   };
 
-  // ======================
-  // FILTER SEARCH
-  // ======================
+  // FILTER
   const filtered = data.filter(
     (i) =>
       i.id.toLowerCase().includes(search.toLowerCase()) ||
@@ -114,9 +98,7 @@ export default function InstrumentList() {
       i.location.toLowerCase().includes(search.toLowerCase())
   );
 
-  // ======================
   // EXPORT EXCEL
-  // ======================
   const exportExcel = () => {
     const ws = XLSX.utils.json_to_sheet(filtered);
     const wb = XLSX.utils.book_new();
@@ -124,9 +106,7 @@ export default function InstrumentList() {
     XLSX.writeFile(wb, "Instrument_List.xlsx");
   };
 
-  // ======================
   // EXPORT PDF
-  // ======================
   const exportPDF = () => {
     const doc = new jsPDF("p", "pt", "a4");
 
@@ -170,9 +150,6 @@ export default function InstrumentList() {
     doc.save("Instrument_List.pdf");
   };
 
-  // ======================
-  // UI
-  // ======================
   return (
     <div style={{ padding: 20 }}>
       <h2>🔧 Instrument Master List</h2>
@@ -185,7 +162,6 @@ export default function InstrumentList() {
         <button onClick={() => navigate("/calibration-reminder")}>⏰ Calibration Reminder</button>
         <button onClick={() => navigate("/calibration-schedule")}>📅 Calibration Schedule</button>
 
-        {/* EXPORT */}
         <button onClick={exportExcel}>⬇ Export Excel</button>
         <button onClick={exportPDF}>⬇ Export PDF</button>
       </div>
@@ -202,7 +178,8 @@ export default function InstrumentList() {
       <fieldset style={{ marginBottom: 16 }}>
         <legend>{editMode ? "✏️ Edit Instrument" : "➕ Tambah Instrument"}</legend>
 
-        <input name="id" placeholder="No Unit" value={form.id} onChange={handleChange} disabled={editMode} />
+        <input name="id" placeholder="No Unit" value={form.id} onChange={handleChange} />
+
         <input name="instrument" placeholder="Instrument Name" value={form.instrument} onChange={handleChange} />
         <input name="serial" placeholder="Serial Number" value={form.serial} onChange={handleChange} />
         <input name="range" placeholder="Range" value={form.range} onChange={handleChange} />
