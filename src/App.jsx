@@ -18,6 +18,7 @@ import DataPart from "./DataPart";
 import Supplier from "./Supplier";
 import Peminta from "./Peminta";
 import Tujuan from "./Tujuan";
+import DOPrint from "./DOPrint";
 
 
 /* ================= 2️⃣ INSTRUMENT CALIBRATION ================= */
@@ -124,6 +125,7 @@ export default function App() {
       <Route path="/stock-opname" element={<StockOpname />} />
       <Route path="/field-inventory" element={<FieldInventory />} />
       <Route path="/data-part" element={<DataPart />} />
+      <Route path="/do-print" element={<DOPrint />} />
 
       <Route path="/supplier" element={<Supplier />} />
       <Route path="/peminta" element={<Peminta />} />

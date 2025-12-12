@@ -1,36 +1,54 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { database } from "./firebase";
-import { ref, onValue, push, update, remove } from "firebase/database";
+import { ref, onValue, push, set, update, remove } from "firebase/database";
 
 import { auth } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
-import * as XLSX from "xlsx";
-
 export default function BarangKeluar() {
   const navigate = useNavigate();
-  const [loadingAuth, setLoadingAuth] = useState(true);
 
+  const [loadingAuth, setLoadingAuth] = useState(true);
   const [items, setItems] = useState([]);
-  const [history, setHistory] = useState([]);
+
+  const [datapart, setDatapart] = useState([]);
+  const [pemintaList, setPemintaList] = useState([]);
+  const [tujuanList, setTujuanList] = useState([]);
+
+  const [searchPart, setSearchPart] = useState("");
+  const [searchPeminta, setSearchPeminta] = useState("");
+  const [searchTujuan, setSearchTujuan] = useState("");
 
   const [form, setForm] = useState({
     partnumber: "",
     nama: "",
     jumlah: "",
+    harga: "",
+    totalHarga: "",
     peminta: "",
     tujuan: "",
-    doNumber: "",
-    keterangan: "",
+    noDO: "",
+    waktu: "",
+    ket: "",
     status: "pending",
   });
 
   const [editId, setEditId] = useState(null);
 
-  /* ======================
-      AUTH GUARD
-  ====================== */
+  // =============================
+  // AUTO TANGGAL & WAKTU
+  // =============================
+  const nowDateTime = () => {
+    const d = new Date();
+    const date = d.toISOString().substring(0, 10);
+    const time = d.toTimeString().split(" ")[0];
+    return `${date} ${time}`;
+  };
+
+  // =============================
+  // AUTH
+  // =============================
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
       if (!u) navigate("/login");
@@ -38,155 +56,199 @@ export default function BarangKeluar() {
     });
   }, [navigate]);
 
-  /* ======================
-      LOAD INVENTORY
-  ====================== */
+  // =============================
+  // LOAD BARANG KELUAR
+  // =============================
   useEffect(() => {
-    const r = ref(database, "items");
+    const r = ref(database, "barangkeluar");
     return onValue(r, (snap) => {
-      const d = snap.val() || {};
-      setItems(Object.values(d));
+      const data = snap.val() || {};
+      setItems(Object.values(data));
     });
   }, []);
 
-  /* ======================
-      LOAD HISTORY
-  ====================== */
+  // =============================
+  // LOAD MASTER DATA
+  // =============================
   useEffect(() => {
-    const r = ref(database, "barangKeluar");
-    return onValue(r, (snap) => {
-      const d = snap.val() || {};
-      setHistory(Object.values(d));
+    onValue(ref(database, "datasparepart"), (snap) => {
+      const data = snap.val() || {};
+      setDatapart(Object.values(data));
+    });
+
+    onValue(ref(database, "peminta"), (snap) => {
+      const data = snap.val() || {};
+      setPemintaList(Object.values(data));
+    });
+
+    onValue(ref(database, "tujuan"), (snap) => {
+      const data = snap.val() || {};
+      setTujuanList(Object.values(data));
     });
   }, []);
 
-  if (loadingAuth) return <p>Checking login...</p>;
+  if (loadingAuth) return <p>Checking login…</p>;
 
-  /* ======================
-      INPUT HANDLER
-  ====================== */
-  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  // =============================
+  // HANDLE INPUT
+  // =============================
+  const onChange = (e) => {
+    let newForm = { ...form, [e.target.name]: e.target.value };
 
-  /* ======================
-      SAVE DATA BARANG KELUAR
-  ====================== */
-  const saveData = async () => {
-    if (!form.partnumber || !form.jumlah) {
-      alert("Part Number & Jumlah wajib diisi!");
-      return;
+    if (e.target.name === "jumlah") {
+      const qty = Number(e.target.value) || 0;
+      const harga = Number(form.harga) || 0;
+      newForm.totalHarga = qty * harga;
     }
 
-    const jumlahBaru = Number(form.jumlah);
+    setForm(newForm);
+  };
+
+  // =============================
+  // PILIH PART DARI DATAPART
+  // =============================
+  const applyPart = (p) => {
+    setForm({
+      ...form,
+      partnumber: p.partnumber,
+      nama: p.nama,
+      harga: Number(p.harga) || 0,
+      jumlah: "",
+      totalHarga: "",
+      waktu: nowDateTime(),
+    });
+
+    setSearchPart("");
+  };
+
+  // =============================
+  // PILIH PEMINTA
+  // =============================
+  const applyPeminta = (p) => {
+    setForm({ ...form, peminta: p.nama });
+    setSearchPeminta("");
+  };
+
+  // =============================
+  // PILIH TUJUAN
+  // =============================
+  const applyTujuan = (t) => {
+    setForm({ ...form, tujuan: t.nama });
+    setSearchTujuan("");
+  };
+
+  // =============================
+  // SAVE
+  // =============================
+  const saveItem = () => {
+    if (!form.partnumber) return alert("Pilih sparepart!");
+    if (!form.jumlah) return alert("Jumlah wajib!");
+    if (!form.peminta) return alert("Peminta wajib!");
+    if (!form.tujuan) return alert("Tujuan wajib!");
 
     if (editId) {
-      // Ambil data lama untuk menghitung selisih stok
-      const lama = history.find((h) => h.id === editId);
-      const barang = items.find((i) => i.partnumber === form.partnumber);
-
-      // Jika sudah approved sebelumnya → hitung koreksi stok
-      if (barang && lama.status === "approved") {
-        const stokBaru =
-          Number(barang.stok) + Number(lama.jumlah) - jumlahBaru;
-
-        await update(ref(database, "items/" + barang.id), {
-          stok: stokBaru,
-        });
-      }
-
-      // Update riwayat
-      await update(ref(database, "barangKeluar/" + editId), {
-        ...form,
-        jumlah: jumlahBaru,
-      });
-
+      update(ref(database, "barangkeluar/" + editId), form);
       setEditId(null);
     } else {
-      // BARU DIBUAT = belum approved → stok belum berubah
-      const id = push(ref(database, "barangKeluar")).key;
-
-      await update(ref(database, "barangKeluar/" + id), {
-        id,
-        ...form,
-        jumlah: jumlahBaru,
-        waktu: new Date().toLocaleString(),
-        status: "pending",
-      });
+      const id = push(ref(database, "barangkeluar")).key;
+      set(ref(database, "barangkeluar/" + id), { ...form, id });
     }
 
     setForm({
       partnumber: "",
       nama: "",
       jumlah: "",
+      harga: "",
+      totalHarga: "",
       peminta: "",
       tujuan: "",
-      doNumber: "",
-      keterangan: "",
+      noDO: "",
+      waktu: "",
+      ket: "",
       status: "pending",
     });
   };
 
-  /* ======================
-      EDIT
-  ====================== */
-  const editRow = (row) => {
-    setEditId(row.id);
-    setForm(row);
+  // =============================
+  // EDIT
+  // =============================
+  const doEdit = (i) => {
+    if (i.status !== "pending")
+      return alert("Tidak bisa edit karena sudah APPROVED!");
+
+    setEditId(i.id);
+    setForm(i);
   };
 
-  /* ======================
-      HAPUS + KOREKSI STOK
-  ====================== */
-  const deleteRow = async (row) => {
-    if (!window.confirm("Hapus permintaan ini?")) return;
+  // =============================
+  // DELETE
+  // =============================
+  const doDelete = (id, status) => {
+    if (status !== "pending")
+      return alert("Tidak bisa hapus karena sudah APPROVED!");
 
-    const barang = items.find((i) => i.partnumber === row.partnumber);
+    if (window.confirm("Hapus data?"))
+      remove(ref(database, "barangkeluar/" + id));
+  };
 
-    // Jika sudah approved → stok harus dikembalikan
-    if (barang && row.status === "approved") {
-      const stokBaru = Number(barang.stok) + Number(row.jumlah);
-
-      await update(ref(database, "items/" + barang.id), { stok: stokBaru });
+  // =============================
+  // PRINT DO BUTTON
+  // =============================
+  const goPrintDO = (noDO) => {
+    if (!noDO || noDO.trim() === "") {
+      return alert("No. DO belum diisi!");
     }
-
-    remove(ref(database, "barangKeluar/" + row.id));
+    navigate(`/do-print?noDO=${noDO}`);
   };
 
-  /* ======================
-      EXPORT EXCEL
-  ====================== */
-  const exportExcel = () => {
-    const data = history.map((h) => ({
-      "Part Number": h.partnumber,
-      "Nama Barang": h.nama,
-      Jumlah: h.jumlah,
-      "No. DO": h.doNumber,
-      Peminta: h.peminta,
-      Tujuan: h.tujuan,
-      Status: h.status,
-      Waktu: h.waktu,
-      Keterangan: h.keterangan,
-    }));
+  // =============================
+  // FILTER SEARCH
+  // =============================
+  const filteredPart = datapart.filter(
+    (p) =>
+      p.partnumber.toLowerCase().includes(searchPart.toLowerCase()) ||
+      p.nama.toLowerCase().includes(searchPart.toLowerCase())
+  );
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Barang Keluar");
-    XLSX.writeFile(wb, "barang_keluar.xlsx");
-  };
+  const filteredPeminta = pemintaList.filter((p) =>
+    p.nama.toLowerCase().includes(searchPeminta.toLowerCase())
+  );
+
+  const filteredTujuan = tujuanList.filter((t) =>
+    t.nama.toLowerCase().includes(searchTujuan.toLowerCase())
+  );
+
+  // =============================
+  // TOTAL PENGELUARAN
+  // =============================
+  const totalPengeluaran = items.reduce(
+    (t, a) => t + Number(a.totalHarga || 0),
+    0
+  );
 
   return (
     <div style={{ padding: 20 }}>
       <h2>➖ Barang Keluar</h2>
 
       {/* NAVIGATION */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>
         <button onClick={() => navigate("/inventory")}>📦 Inventory</button>
         <button onClick={() => navigate("/barang-masuk")}>➕ Barang Masuk</button>
-        <button onClick={() => navigate("/approval-barang-keluar")}>📝 Approval</button>
+        <button onClick={() => navigate("/approval-barang-keluar")}>
+          📝 Approval
+        </button>
         <button onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
         <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
-        <button onClick={() => navigate("/field-inventory")}>🧭 Field Inventory</button>
-        <button onClick={exportExcel}>⬇ Export Excel</button>
+        <button onClick={() => navigate("/field-inventory")}>
+          🧭 Field Inventory
+        </button>
+
+        {/* MASTER DATA */}
+        <button onClick={() => navigate("/data-part")}>🛠 Sparepart</button>
+        <button onClick={() => navigate("/supplier")}>🏬 Supplier</button>
+        <button onClick={() => navigate("/peminta")}>👤 Peminta</button>
+        <button onClick={() => navigate("/tujuan")}>🎯 Tujuan</button>
 
         <button
           onClick={() => {
@@ -201,78 +263,169 @@ export default function BarangKeluar() {
 
       <hr />
 
-      {/* FORM */}
-      <h3>{editId ? "Edit Permintaan Barang Keluar" : "Input Permintaan Barang Keluar"}</h3>
+      {/* ========================= FORM INPUT ========================= */}
+      <h3>{editId ? "Edit Barang Keluar" : "Tambah Barang Keluar"}</h3>
 
-      <select
-        name="partnumber"
-        value={form.partnumber}
-        onChange={(e) => {
-          const pn = e.target.value;
-          const barang = items.find((i) => i.partnumber === pn);
-          setForm({
-            ...form,
-            partnumber: pn,
-            nama: barang?.nama || "",
-          });
-        }}
-      >
-        <option value="">Pilih Barang</option>
-        {items.map((i) => (
-          <option key={i.id} value={i.partnumber}>
-            {i.partnumber} — {i.nama}
-          </option>
-        ))}
-      </select>
+      {/* SEARCH SPAREPART */}
+      <input
+        placeholder="Cari Part Number / Nama"
+        value={searchPart}
+        onChange={(e) => setSearchPart(e.target.value)}
+      />
 
-      <input disabled value={form.nama} placeholder="Nama Barang" />
-      <input name="jumlah" placeholder="Jumlah" value={form.jumlah} onChange={onChange} />
-      <input name="doNumber" placeholder="No. DO" value={form.doNumber} onChange={onChange} />
-      <input name="peminta" placeholder="Peminta" value={form.peminta} onChange={onChange} />
-      <input name="tujuan" placeholder="Tujuan" value={form.tujuan} onChange={onChange} />
-      <input name="keterangan" placeholder="Keterangan" value={form.keterangan} onChange={onChange} />
+      {searchPart && (
+        <div style={{ border: "1px solid #ccc", width: 300, background: "#f7f7f7" }}>
+          {filteredPart.map((p) => (
+            <div
+              key={p.id}
+              onClick={() => applyPart(p)}
+              style={{ padding: 6, cursor: "pointer", borderBottom: "1px solid #ddd" }}
+            >
+              <b>{p.partnumber}</b> — {p.nama}
+            </div>
+          ))}
+        </div>
+      )}
 
-      <button onClick={saveData}>{editId ? "Update" : "Simpan"}</button>
+      <br />
+
+      {/* FORM INPUT */}
+      <input name="partnumber" value={form.partnumber} readOnly />
+      <input name="nama" value={form.nama} readOnly />
+
+      <input
+        name="jumlah"
+        type="number"
+        placeholder="Jumlah"
+        value={form.jumlah}
+        onChange={onChange}
+      />
+
+      <input name="harga" value={form.harga} readOnly />
+
+      <input name="totalHarga" value={form.totalHarga} readOnly />
+
+      {/* PEMINTA */}
+      <input
+        placeholder="Cari Peminta"
+        value={searchPeminta}
+        onChange={(e) => setSearchPeminta(e.target.value)}
+      />
+
+      {searchPeminta && (
+        <div style={{ border: "1px solid #ccc", width: 300, background: "#eef" }}>
+          {filteredPeminta.map((p) => (
+            <div
+              key={p.id}
+              onClick={() => applyPeminta(p)}
+              style={{ padding: 5, cursor: "pointer" }}
+            >
+              {p.nama}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <input name="peminta" value={form.peminta} readOnly />
+
+      {/* TUJUAN */}
+      <input
+        placeholder="Cari Tujuan"
+        value={searchTujuan}
+        onChange={(e) => setSearchTujuan(e.target.value)}
+      />
+
+      {searchTujuan && (
+        <div style={{ border: "1px solid #ccc", width: 300, background: "#efe" }}>
+          {filteredTujuan.map((t) => (
+            <div
+              key={t.id}
+              onClick={() => applyTujuan(t)}
+              style={{ padding: 5, cursor: "pointer" }}
+            >
+              {t.nama}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <input name="tujuan" value={form.tujuan} readOnly />
+
+      <input
+        name="noDO"
+        placeholder="No. DO"
+        value={form.noDO}
+        onChange={onChange}
+      />
+
+      <input
+        name="waktu"
+        placeholder="Waktu"
+        value={form.waktu}
+        readOnly
+      />
+
+      <input
+        name="ket"
+        placeholder="Keterangan"
+        value={form.ket}
+        onChange={onChange}
+      />
+
+      <br />
+      <button onClick={saveItem}>{editId ? "Update" : "Simpan"}</button>
 
       <hr />
 
-      {/* TABLE */}
+      {/* ========================= TABLE ========================= */}
+      <h3>Riwayat Barang Keluar</h3>
+
       <table border="1" width="100%" cellPadding="6">
         <thead>
           <tr>
+            <th>No DO</th>
             <th>Part Number</th>
             <th>Nama</th>
             <th>Jumlah</th>
-            <th>No. DO</th>
+            <th>Harga</th>
+            <th>Total</th>
             <th>Peminta</th>
             <th>Tujuan</th>
-            <th>Status</th>
             <th>Waktu</th>
-            <th>Keterangan</th>
+            <th>Status</th>
             <th>Aksi</th>
           </tr>
         </thead>
 
         <tbody>
-          {history.map((h) => (
-            <tr key={h.id}>
-              <td>{h.partnumber}</td>
-              <td>{h.nama}</td>
-              <td>{h.jumlah}</td>
-              <td>{h.doNumber}</td>
-              <td>{h.peminta}</td>
-              <td>{h.tujuan}</td>
-              <td>{h.status}</td>
-              <td>{h.waktu}</td>
-              <td>{h.keterangan}</td>
+          {items.map((i) => (
+            <tr key={i.id}>
+              <td>{i.noDO}</td>
+              <td>{i.partnumber}</td>
+              <td>{i.nama}</td>
+              <td>{i.jumlah}</td>
+              <td>{i.harga}</td>
+              <td>{i.totalHarga}</td>
+              <td>{i.peminta}</td>
+              <td>{i.tujuan}</td>
+              <td>{i.waktu}</td>
+              <td>{i.status}</td>
+
               <td>
-                <button onClick={() => editRow(h)}>Edit</button>
-                <button onClick={() => deleteRow(h)}>Hapus</button>
+                <button onClick={() => doEdit(i)}>Edit</button>
+                <button onClick={() => doDelete(i.id, i.status)}>Hapus</button>
+
+                {/* PRINT DO BUTTON */}
+                <button onClick={() => goPrintDO(i.noDO)}>📄 Print DO</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      <h3>
+        💰 Total Pengeluaran: Rp {totalPengeluaran.toLocaleString()}
+      </h3>
     </div>
   );
 }

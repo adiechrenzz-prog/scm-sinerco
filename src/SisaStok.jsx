@@ -10,12 +10,17 @@ import * as XLSX from "xlsx";
 
 export default function SisaStok() {
   const navigate = useNavigate();
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  const [items, setItems] = useState([]);
 
-  // ======================
-  // AUTH GUARD
-  // ======================
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [inventory, setInventory] = useState([]);
+  const [barangMasuk, setBarangMasuk] = useState([]);
+  const [barangKeluar, setBarangKeluar] = useState([]);
+
+  const [search, setSearch] = useState("");
+
+  // ============================
+  // AUTH
+  // ============================
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
       if (!u) navigate("/login");
@@ -23,31 +28,126 @@ export default function SisaStok() {
     });
   }, [navigate]);
 
-  // ======================
-  // LOAD INVENTORY
-  // ======================
+  // ============================
+  // LOAD INVENTORY (stok awal)
+  // ============================
   useEffect(() => {
     const r = ref(database, "items");
     return onValue(r, (snap) => {
       const data = snap.val() || {};
-      const arr = Object.values(data);
-      setItems(arr);
+      setInventory(Object.values(data));
+    });
+  }, []);
+
+  // ============================
+  // LOAD BARANG MASUK
+  // ============================
+  useEffect(() => {
+    const r = ref(database, "barangmasuk");
+    return onValue(r, (snap) => {
+      const data = snap.val() || {};
+      setBarangMasuk(Object.values(data));
+    });
+  }, []);
+
+  // ============================
+  // LOAD BARANG KELUAR APPROVED
+  // ============================
+  useEffect(() => {
+    const r = ref(database, "barangkeluar");
+    return onValue(r, (snap) => {
+      const data = snap.val() || {};
+      const arr = Object.values(data).filter(
+        (i) => i.status === "approved"
+      );
+      setBarangKeluar(arr);
     });
   }, []);
 
   if (loadingAuth) return <p>Checking login…</p>;
 
-  // ======================
+  // ============================
+  // HITUNG SISA STOK
+  // ============================
+  const map = {};
+
+  // --- inventory (stok awal)
+  inventory.forEach((i) => {
+    if (!map[i.partnumber]) {
+      map[i.partnumber] = {
+        partnumber: i.partnumber,
+        nama: i.nama,
+        harga: Number(i.harga || 0),
+        stokAwal: Number(i.stok || 0),
+        masuk: 0,
+        keluar: 0,
+      };
+    }
+  });
+
+  // --- barang masuk
+  barangMasuk.forEach((bm) => {
+    if (!map[bm.partnumber]) {
+      map[bm.partnumber] = {
+        partnumber: bm.partnumber,
+        nama: bm.nama,
+        harga: 0,
+        stokAwal: 0,
+        masuk: 0,
+        keluar: 0,
+      };
+    }
+    map[bm.partnumber].masuk += Number(bm.jumlah || 0);
+  });
+
+  // --- barang keluar approved
+  barangKeluar.forEach((bk) => {
+    if (!map[bk.partnumber]) {
+      map[bk.partnumber] = {
+        partnumber: bk.partnumber,
+        nama: bk.nama,
+        harga: 0,
+        stokAwal: 0,
+        masuk: 0,
+        keluar: 0,
+      };
+    }
+    map[bk.partnumber].keluar += Number(bk.jumlah || 0);
+  });
+
+  const result = Object.values(map).map((i) => ({
+    ...i,
+    sisa: i.stokAwal + i.masuk - i.keluar,
+    nilai: (i.stokAwal + i.masuk - i.keluar) * i.harga,
+  }));
+
+  // SORT by PN
+  result.sort((a, b) => Number(a.partnumber) - Number(b.partnumber));
+
+  // ============================
+  // SEARCH FILTER
+  // ============================
+  const filtered = result.filter(
+    (i) =>
+      i.partnumber.toLowerCase().includes(search.toLowerCase()) ||
+      i.nama.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const totalNilai = filtered.reduce((sum, i) => sum + i.nilai, 0);
+
+  // ============================
   // EXPORT EXCEL
-  // ======================
+  // ============================
   const exportExcel = () => {
-    const data = items.map((i) => ({
+    const data = filtered.map((i) => ({
       "Part Number": i.partnumber,
       "Nama Barang": i.nama,
-      Stok: i.stok,
-      Satuan: i.satuan,
-      Gudang: i.gudang,
-      Rack: i.rack,
+      "Stok Awal": i.stokAwal,
+      "Total Masuk": i.masuk,
+      "Total Keluar": i.keluar,
+      "Sisa Stok": i.sisa,
+      "Harga Satuan": i.harga,
+      "Total Nilai": i.nilai,
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -56,37 +156,21 @@ export default function SisaStok() {
     XLSX.writeFile(wb, "sisa_stok.xlsx");
   };
 
-  // ======================
-  // SORTING
-  // ======================
-  const sorted = [...items].sort(
-    (a, b) => Number(a.partnumber) - Number(b.partnumber)
-  );
-
   return (
     <div style={{ padding: 20 }}>
       <h2>📊 Laporan Sisa Stok</h2>
 
-      {/* NAVBAR */}
-      <div
-        style={{
-          display: "flex",
-          gap: 10,
-          marginBottom: 12,
-          flexWrap: "wrap",
-          alignItems: "center",
-        }}
-      >
+      {/* NAV BAR */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>
         <button onClick={() => navigate("/inventory")}>📦 Inventory</button>
         <button onClick={() => navigate("/barang-masuk")}>➕ Barang Masuk</button>
         <button onClick={() => navigate("/barang-keluar")}>➖ Barang Keluar</button>
         <button onClick={() => navigate("/approval-barang-keluar")}>📝 Approval</button>
-        <button onClick={() => navigate("/sisa-stock")}>📊 Sisa Stok</button>
         <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
         <button onClick={() => navigate("/field-inventory")}>🧭 Field Inventory</button>
 
-        <button onClick={exportExcel}>⬇️ Export Excel</button>
+        <button onClick={exportExcel}>⬇ Export Excel</button>
 
         <button
           onClick={() => {
@@ -101,28 +185,48 @@ export default function SisaStok() {
 
       <hr />
 
-      {/* TABLE */}
+      {/* SEARCH */}
+      <input
+        placeholder="Cari Part Number / Nama Barang"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ width: "40%", marginBottom: 10 }}
+      />
+
+      <h3>💰 Total Nilai Stok: Rp {totalNilai.toLocaleString()}</h3>
+
       <table border="1" width="100%" cellPadding="6">
         <thead>
           <tr>
             <th>Part Number</th>
             <th>Nama Barang</th>
-            <th>Stok</th>
-            <th>Satuan</th>
-            <th>Gudang</th>
-            <th>Rack</th>
+            <th>Stok Awal</th>
+            <th>Total Masuk</th>
+            <th>Total Keluar</th>
+            <th>Sisa Stok</th>
+            <th>Harga</th>
+            <th>Nilai</th>
           </tr>
         </thead>
 
         <tbody>
-          {sorted.map((i) => (
-            <tr key={i.id}>
+          {filtered.map((i) => (
+            <tr key={i.partnumber}>
               <td>{i.partnumber}</td>
               <td>{i.nama}</td>
-              <td>{i.stok}</td>
-              <td>{i.satuan}</td>
-              <td>{i.gudang}</td>
-              <td>{i.rack}</td>
+              <td>{i.stokAwal}</td>
+              <td>{i.masuk}</td>
+              <td>{i.keluar}</td>
+              <td
+                style={{
+                  background: i.sisa <= 0 ? "#ffcccc" : "inherit",
+                  fontWeight: i.sisa <= 0 ? "bold" : "normal",
+                }}
+              >
+                {i.sisa}
+              </td>
+              <td>{i.harga}</td>
+              <td>{i.nilai.toLocaleString()}</td>
             </tr>
           ))}
         </tbody>

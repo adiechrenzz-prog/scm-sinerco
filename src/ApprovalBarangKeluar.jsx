@@ -8,14 +8,11 @@ import { useNavigate } from "react-router-dom";
 
 export default function ApprovalBarangKeluar() {
   const navigate = useNavigate();
+
   const [loadingAuth, setLoadingAuth] = useState(true);
-
   const [items, setItems] = useState([]);
-  const [history, setHistory] = useState([]);
 
-  // ======================
-  // AUTH GUARD
-  // ======================
+  // AUTH
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => {
       if (!u) navigate("/login");
@@ -23,121 +20,36 @@ export default function ApprovalBarangKeluar() {
     });
   }, [navigate]);
 
-  // ======================
-  // LOAD INVENTORY ITEMS
-  // ======================
+  // LOAD DATA
   useEffect(() => {
-    const r = ref(database, "items");
+    const r = ref(database, "barangkeluar");
     return onValue(r, (snap) => {
-      const d = snap.val() || {};
-      setItems(Object.values(d));
-    });
-  }, []);
-
-  // ======================
-  // LOAD PERMINTAAN BARANG KELUAR
-  // ======================
-  useEffect(() => {
-    const r = ref(database, "barangKeluar");
-    return onValue(r, (snap) => {
-      const d = snap.val() || {};
-      setHistory(Object.values(d));
+      const data = snap.val() || {};
+      setItems(Object.values(data));
     });
   }, []);
 
   if (loadingAuth) return <p>Checking login...</p>;
 
-  // ======================
-  // APPROVE — Kurangi stok
-  // ======================
-  const approve = async (row) => {
-    if (!window.confirm("Setujui permintaan ini?")) return;
-
-    const barang = items.find((i) => i.partnumber === row.partnumber);
-    if (!barang) return alert("Barang tidak ditemukan!");
-
-    const jumlah = Number(row.jumlah);
-
-    // Hanya kurangi stok jika sebelumnya status bukan approved
-    if (row.status !== "approved") {
-      const stokBaru = Number(barang.stok) - jumlah;
-
-      if (stokBaru < 0) return alert("Stok tidak cukup!");
-
-      await update(ref(database, "items/" + barang.id), {
-        stok: stokBaru,
-      });
-    }
-
-    await update(ref(database, "barangKeluar/" + row.id), {
-      status: "approved",
-      waktuApprove: new Date().toLocaleString(),
-    });
+  // CHANGE STATUS
+  const setStatus = (id, status) => {
+    update(ref(database, "barangkeluar/" + id), { status });
   };
 
-  // ======================
-  // SET KE PENDING → Kembalikan stok jika sebelumnya approved
-  // ======================
-  const setPending = async (row) => {
-    if (!window.confirm("Kembalikan status menjadi pending?")) return;
-
-    const barang = items.find((i) => i.partnumber === row.partnumber);
-    if (!barang) return alert("Barang tidak ditemukan!");
-
-    const jumlah = Number(row.jumlah);
-
-    // Jika sebelumnya approved → balikan stok
-    if (row.status === "approved") {
-      const stokBaru = Number(barang.stok) + jumlah;
-
-      await update(ref(database, "items/" + barang.id), {
-        stok: stokBaru,
-      });
-    }
-
-    await update(ref(database, "barangKeluar/" + row.id), {
-      status: "pending",
-    });
-  };
-
-  // ======================
-  // REJECT — Jika sebelumnya approved stok dikembalikan
-  // ======================
-  const reject = async (row) => {
-    if (!window.confirm("Tolak permintaan ini?")) return;
-
-    const barang = items.find((i) => i.partnumber === row.partnumber);
-    if (!barang) return alert("Barang tidak ditemukan!");
-
-    const jumlah = Number(row.jumlah);
-
-    // Jika sebelumnya approved → kembalikan stok
-    if (row.status === "approved") {
-      const stokBaru = Number(barang.stok) + jumlah;
-
-      await update(ref(database, "items/" + barang.id), {
-        stok: stokBaru,
-      });
-    }
-
-    await update(ref(database, "barangKeluar/" + row.id), {
-      status: "rejected",
-    });
-  };
+  // === UI ===
 
   return (
     <div style={{ padding: 20 }}>
       <h2>📝 Approval Barang Keluar</h2>
 
       {/* NAVIGATION */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>
         <button onClick={() => navigate("/inventory")}>📦 Inventory</button>
         <button onClick={() => navigate("/barang-masuk")}>➕ Barang Masuk</button>
         <button onClick={() => navigate("/barang-keluar")}>➖ Barang Keluar</button>
         <button onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
         <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
-        <button onClick={() => navigate("/field-inventory")}>🧭 Field Inventory</button>
 
         <button
           onClick={() => {
@@ -155,49 +67,64 @@ export default function ApprovalBarangKeluar() {
       {/* TABLE */}
       <table border="1" width="100%" cellPadding="6">
         <thead>
-          <tr>
+          <tr style={{ background: "#eee" }}>
+            <th>No DO</th>
             <th>Part Number</th>
-            <th>Nama Barang</th>
+            <th>Nama</th>
             <th>Jumlah</th>
+            <th>Harga</th>
+            <th>Total Harga</th>
             <th>Peminta</th>
             <th>Tujuan</th>
-            <th>Status</th>
             <th>Waktu</th>
+            <th>Status</th>
             <th>Aksi</th>
           </tr>
         </thead>
 
         <tbody>
-          {history.map((row) => (
-            <tr key={row.id}>
-              <td>{row.partnumber}</td>
-              <td>{row.nama}</td>
-              <td>{row.jumlah}</td>
-              <td>{row.peminta}</td>
-              <td>{row.tujuan}</td>
-              <td>{row.status}</td>
-              <td>{row.waktu}</td>
+          {items.map((i) => (
+            <tr
+              key={i.id}
+              style={{
+                background:
+                  i.status === "approved"
+                    ? "#d4ffd4"
+                    : i.status === "rejected"
+                    ? "#ffd4d4"
+                    : "white",
+              }}
+            >
+              <td>{i.noDO}</td>
+              <td>{i.partnumber}</td>
+              <td>{i.nama}</td>
+              <td>{i.jumlah}</td>
+              <td>{i.harga}</td>
+              <td>{i.jumlah * i.harga}</td>
+              <td>{i.peminta}</td>
+              <td>{i.tujuan}</td>
+              <td>{i.waktu}</td>
+
+              <td style={{ fontWeight: "bold" }}>{i.status}</td>
 
               <td>
-                {/* APPROVE */}
-                {row.status !== "approved" && (
-                  <button onClick={() => approve(row)}>Approve</button>
+                {/* STATUS CONTROL ONLY */}
+                {i.status === "pending" && (
+                  <>
+                    <button onClick={() => setStatus(i.id, "approved")}>✔ Approve</button>
+                    <button onClick={() => setStatus(i.id, "rejected")}>✖ Reject</button>
+                  </>
                 )}
 
-                {/* PENDING */}
-                {row.status === "approved" && (
-                  <button onClick={() => setPending(row)}>Set Pending</button>
+                {i.status === "approved" && (
+                  <button onClick={() => setStatus(i.id, "pending")}>
+                    🔄 Kembalikan ke Pending
+                  </button>
                 )}
 
-                {/* REJECT */}
-                {row.status !== "rejected" && (
-                  <button onClick={() => reject(row)}>Reject</button>
-                )}
-
-                {/* EDIT (Hanya jika pending) */}
-                {row.status === "pending" && (
-                  <button onClick={() => navigate("/barang-keluar?edit=" + row.id)}>
-                    Edit
+                {i.status === "rejected" && (
+                  <button onClick={() => setStatus(i.id, "pending")}>
+                    🔄 Kembalikan ke Pending
                   </button>
                 )}
               </td>
