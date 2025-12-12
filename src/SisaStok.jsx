@@ -29,11 +29,10 @@ export default function SisaStok() {
   }, [navigate]);
 
   // ============================
-  // LOAD INVENTORY (stok awal)
+  // LOAD INVENTORY
   // ============================
   useEffect(() => {
-    const r = ref(database, "items");
-    return onValue(r, (snap) => {
+    onValue(ref(database, "items"), (snap) => {
       const data = snap.val() || {};
       setInventory(Object.values(data));
     });
@@ -43,23 +42,19 @@ export default function SisaStok() {
   // LOAD BARANG MASUK
   // ============================
   useEffect(() => {
-    const r = ref(database, "barangmasuk");
-    return onValue(r, (snap) => {
+    onValue(ref(database, "barangmasuk"), (snap) => {
       const data = snap.val() || {};
       setBarangMasuk(Object.values(data));
     });
   }, []);
 
   // ============================
-  // LOAD BARANG KELUAR APPROVED
+  // LOAD BARANG KELUAR APPROVED (AMAN)
   // ============================
   useEffect(() => {
-    const r = ref(database, "barangkeluar");
-    return onValue(r, (snap) => {
+    onValue(ref(database, "barangkeluar"), (snap) => {
       const data = snap.val() || {};
-      const arr = Object.values(data).filter(
-        (i) => i.status === "approved"
-      );
+      const arr = Object.values(data).filter((i) => i.status === "approved");
       setBarangKeluar(arr);
     });
   }, []);
@@ -67,16 +62,21 @@ export default function SisaStok() {
   if (loadingAuth) return <p>Checking login…</p>;
 
   // ============================
-  // HITUNG SISA STOK
+  // HITUNG SISA STOK — AMAN
   // ============================
   const map = {};
 
-  // --- inventory (stok awal)
+  const safePN = (pn) => String(pn || "").trim();
+
+  // INVENTORY
   inventory.forEach((i) => {
-    if (!map[i.partnumber]) {
-      map[i.partnumber] = {
-        partnumber: i.partnumber,
-        nama: i.nama,
+    const pn = safePN(i.partnumber);
+    if (!pn) return;
+
+    if (!map[pn]) {
+      map[pn] = {
+        partnumber: pn,
+        nama: i.nama || "",
         harga: Number(i.harga || 0),
         stokAwal: Number(i.stok || 0),
         masuk: 0,
@@ -85,48 +85,57 @@ export default function SisaStok() {
     }
   });
 
-  // --- barang masuk
+  // BARANG MASUK
   barangMasuk.forEach((bm) => {
-    if (!map[bm.partnumber]) {
-      map[bm.partnumber] = {
-        partnumber: bm.partnumber,
-        nama: bm.nama,
+    const pn = safePN(bm.partnumber);
+    if (!pn) return;
+
+    if (!map[pn]) {
+      map[pn] = {
+        partnumber: pn,
+        nama: bm.nama || "",
         harga: 0,
         stokAwal: 0,
         masuk: 0,
         keluar: 0,
       };
     }
-    map[bm.partnumber].masuk += Number(bm.jumlah || 0);
+
+    map[pn].masuk += Number(bm.jumlah || bm.Jumlah || 0);
   });
 
-  // --- barang keluar approved
+  // BARANG KELUAR APPROVED
   barangKeluar.forEach((bk) => {
-    if (!map[bk.partnumber]) {
-      map[bk.partnumber] = {
-        partnumber: bk.partnumber,
-        nama: bk.nama,
+    const pn = safePN(bk.partnumber);
+    if (!pn) return;
+
+    if (!map[pn]) {
+      map[pn] = {
+        partnumber: pn,
+        nama: bk.nama || "",
         harga: 0,
         stokAwal: 0,
         masuk: 0,
         keluar: 0,
       };
     }
-    map[bk.partnumber].keluar += Number(bk.jumlah || 0);
+
+    map[pn].keluar += Number(bk.jumlah || bk.Jumlah || 0);
   });
 
-  const result = Object.values(map).map((i) => ({
-    ...i,
-    sisa: i.stokAwal + i.masuk - i.keluar,
-    nilai: (i.stokAwal + i.masuk - i.keluar) * i.harga,
-  }));
+  // FINAL RESULT
+  const result = Object.values(map).map((i) => {
+    const sisa = i.stokAwal + i.masuk - i.keluar;
+    return {
+      ...i,
+      sisa,
+      nilai: sisa * Number(i.harga || 0),
+    };
+  });
 
-  // SORT by PN
-  result.sort((a, b) => Number(a.partnumber) - Number(b.partnumber));
+  result.sort((a, b) => a.partnumber.localeCompare(b.partnumber));
 
-  // ============================
-  // SEARCH FILTER
-  // ============================
+  // SEARCH
   const filtered = result.filter(
     (i) =>
       i.partnumber.toLowerCase().includes(search.toLowerCase()) ||
@@ -168,24 +177,16 @@ export default function SisaStok() {
         <button onClick={() => navigate("/barang-keluar")}>➖ Barang Keluar</button>
         <button onClick={() => navigate("/approval-barang-keluar")}>📝 Approval</button>
         <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
-        <button onClick={() => navigate("/field-inventory")}>🧭 Field Inventory</button>
 
         <button onClick={exportExcel}>⬇ Export Excel</button>
 
-        <button
-          onClick={() => {
-            signOut(auth);
-            navigate("/login");
-          }}
-          style={{ marginLeft: "auto" }}
-        >
+        <button style={{ marginLeft: "auto" }} onClick={() => { signOut(auth); navigate("/login"); }}>
           Logout
         </button>
       </div>
 
       <hr />
 
-      {/* SEARCH */}
       <input
         placeholder="Cari Part Number / Nama Barang"
         value={search}
@@ -217,12 +218,10 @@ export default function SisaStok() {
               <td>{i.stokAwal}</td>
               <td>{i.masuk}</td>
               <td>{i.keluar}</td>
-              <td
-                style={{
-                  background: i.sisa <= 0 ? "#ffcccc" : "inherit",
-                  fontWeight: i.sisa <= 0 ? "bold" : "normal",
-                }}
-              >
+              <td style={{
+                background: i.sisa <= 0 ? "#ffcccc" : "",
+                fontWeight: i.sisa <= 0 ? "bold" : "",
+              }}>
                 {i.sisa}
               </td>
               <td>{i.harga}</td>

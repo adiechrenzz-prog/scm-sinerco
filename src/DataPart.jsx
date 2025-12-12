@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { database } from "./firebase";
 import { ref, onValue, push, set, remove, update } from "firebase/database";
 
@@ -6,8 +6,11 @@ import { auth } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
+import * as XLSX from "xlsx";
+
 export default function DataPart() {
   const navigate = useNavigate();
+  const fileRef = useRef(null);
 
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [items, setItems] = useState([]);
@@ -15,7 +18,7 @@ export default function DataPart() {
   const [form, setForm] = useState({
     partnumber: "",
     nama: "",
-    harga: "",       // 🔥 Tambahan harga satuan
+    harga: "", // harga satuan
   });
 
   const [editId, setEditId] = useState(null);
@@ -77,6 +80,60 @@ export default function DataPart() {
     (a, b) => Number(a.partnumber) - Number(b.partnumber)
   );
 
+  // =======================================================
+  // 🔽 IMPORT EXCEL
+  // =======================================================
+  const importExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = (evt) => {
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+      rows.forEach((row) => {
+        const pn = row["Part Number"];
+        const nama = row["Nama Sparepart"];
+        const harga = row["Harga"] || 0;
+
+        if (!pn || !nama) return;
+
+        const id = push(ref(database, "datasparepart")).key;
+        set(ref(database, "datasparepart/" + id), {
+          id,
+          partnumber: pn,
+          nama,
+          harga,
+        });
+      });
+
+      alert("Import selesai");
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
+  // =======================================================
+  // 🔼 EXPORT EXCEL
+  // =======================================================
+  const exportExcel = () => {
+    const rows = items.map((i) => ({
+      "Part Number": i.partnumber,
+      "Nama Sparepart": i.nama,
+      Harga: i.harga,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "DataPart");
+
+    XLSX.writeFile(wb, "DataSparepart.xlsx");
+  };
+
   return (
     <div style={{ padding: 20 }}>
       <h2>🛠 Master Data Sparepart</h2>
@@ -88,6 +145,19 @@ export default function DataPart() {
         <button onClick={() => navigate("/barang-keluar")}>➖ Barang Keluar</button>
         <button onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
         <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
+
+        {/* IMPORT EXCEL */}
+        <button onClick={() => fileRef.current.click()}>⬆ Import Excel</button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls"
+          style={{ display: "none" }}
+          onChange={importExcel}
+        />
+
+        {/* EXPORT EXCEL */}
+        <button onClick={exportExcel}>⬇ Export Excel</button>
 
         <button
           onClick={() => {

@@ -1,13 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { database } from "./firebase";
-import { ref, onValue, update } from "firebase/database";
+import { ref, onValue, update, remove, push, set } from "firebase/database";
 
 import { auth } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
+import * as XLSX from "xlsx";
+
 export default function ApprovalBarangKeluar() {
   const navigate = useNavigate();
+  const fileRef = useRef(null);
 
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [items, setItems] = useState([]);
@@ -36,13 +39,90 @@ export default function ApprovalBarangKeluar() {
     update(ref(database, "barangkeluar/" + id), { status });
   };
 
-  // === UI ===
+  // =========================
+  // EXPORT EXCEL
+  // =========================
+  const exportExcel = () => {
+    const rows = items.map((i) => ({
+      "No DO": i.noDO,
+      "Part Number": i.partnumber,
+      Nama: i.nama,
+      Jumlah: i.jumlah,
+      Harga: i.harga,
+      "Total Harga": i.jumlah * i.harga,
+      Peminta: i.peminta,
+      Tujuan: i.tujuan,
+      Waktu: i.waktu,
+      Status: i.status,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Approval Barang Keluar");
+
+    XLSX.writeFile(wb, "approval_barang_keluar.xlsx");
+  };
+
+  // =========================
+  // IMPORT EXCEL
+  // =========================
+  const importExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = (evt) => {
+      const data = new Uint8Array(evt.target.result);
+      const wb = XLSX.read(data, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+      rows.forEach((r) => {
+        const id = push(ref(database, "barangkeluar")).key;
+
+        set(ref(database, "barangkeluar/" + id), {
+          id,
+          noDO: r["No DO"] || "",
+          partnumber: r["Part Number"] || "",
+          nama: r["Nama"] || "",
+          jumlah: r["Jumlah"] || "",
+          harga: r["Harga"] || "",
+          totalHarga: r["Total Harga"] || "",
+          peminta: r["Peminta"] || "",
+          tujuan: r["Tujuan"] || "",
+          waktu: r["Waktu"] || "",
+          status: r["Status"] || "pending",
+        });
+      });
+
+      alert("Import berhasil!");
+      e.target.value = "";
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
+
+  // =========================
+  // HAPUS SEMUA DATA
+  // =========================
+  const deleteAll = () => {
+    if (!window.confirm("Yakin hapus SEMUA data approval & barang keluar?"))
+      return;
+
+    remove(ref(database, "barangkeluar"));
+    alert("Semua data telah dihapus!");
+  };
+
+  // =========================
+  // UI
+  // =========================
 
   return (
     <div style={{ padding: 20 }}>
       <h2>📝 Approval Barang Keluar</h2>
 
-      {/* NAVIGATION */}
+      {/* NAV */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>
         <button onClick={() => navigate("/inventory")}>📦 Inventory</button>
@@ -51,6 +131,28 @@ export default function ApprovalBarangKeluar() {
         <button onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
         <button onClick={() => navigate("/stock-opname")}>📋 Stock Opname</button>
 
+        {/* IMPORT */}
+        <button onClick={() => fileRef.current.click()}>⬆ Import Excel</button>
+        <input
+          type="file"
+          ref={fileRef}
+          accept=".xlsx,.xls"
+          style={{ display: "none" }}
+          onChange={importExcel}
+        />
+
+        {/* EXPORT */}
+        <button onClick={exportExcel}>⬇ Export Excel</button>
+
+        {/* DELETE ALL */}
+        <button
+          onClick={deleteAll}
+          style={{ background: "red", color: "white" }}
+        >
+          🗑 Hapus Semua Data
+        </button>
+
+        {/* LOGOUT */}
         <button
           onClick={() => {
             signOut(auth);
@@ -108,21 +210,18 @@ export default function ApprovalBarangKeluar() {
               <td style={{ fontWeight: "bold" }}>{i.status}</td>
 
               <td>
-                {/* STATUS CONTROL ONLY */}
                 {i.status === "pending" && (
                   <>
-                    <button onClick={() => setStatus(i.id, "approved")}>✔ Approve</button>
-                    <button onClick={() => setStatus(i.id, "rejected")}>✖ Reject</button>
+                    <button onClick={() => setStatus(i.id, "approved")}>
+                      ✔ Approve
+                    </button>
+                    <button onClick={() => setStatus(i.id, "rejected")}>
+                      ✖ Reject
+                    </button>
                   </>
                 )}
 
-                {i.status === "approved" && (
-                  <button onClick={() => setStatus(i.id, "pending")}>
-                    🔄 Kembalikan ke Pending
-                  </button>
-                )}
-
-                {i.status === "rejected" && (
+                {i.status !== "pending" && (
                   <button onClick={() => setStatus(i.id, "pending")}>
                     🔄 Kembalikan ke Pending
                   </button>

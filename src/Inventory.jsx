@@ -200,13 +200,15 @@ export default function Inventory() {
   };
 
   // ====================================
-  // FILTER SPAREPART SEARCH
+  // FILTER SPAREPART SEARCH (FIX ERROR)
   // ====================================
-  const filteredSpareparts = spareparts.filter(
-    (s) =>
-      s.partnumber.toLowerCase().includes(searchText.toLowerCase()) ||
-      s.nama.toLowerCase().includes(searchText.toLowerCase())
-  );
+  const filteredSpareparts = spareparts.filter((s) => {
+    const pn = String(s.partnumber || "").toLowerCase();
+    const nm = String(s.nama || "").toLowerCase();
+    const key = searchText.toLowerCase();
+
+    return pn.includes(key) || nm.includes(key);
+  });
 
   const sortedItems = [...items].sort(
     (a, b) => Number(a.partnumber) - Number(b.partnumber)
@@ -249,7 +251,13 @@ export default function Inventory() {
         <button onClick={() => navigate("/tujuan")}>🎯 Tujuan</button>
 
         <button onClick={() => fileInputRef.current.click()}>⬆ Import Excel</button>
-        <input ref={fileInputRef} type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={importExcel} />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          style={{ display: "none" }}
+          onChange={importExcel}
+        />
 
         <button onClick={exportExcel}>⬇ Export Excel</button>
 
@@ -276,7 +284,14 @@ export default function Inventory() {
       />
 
       {searchText && (
-        <div style={{ border: "1px solid #aaa", padding: 10, width: "40%", background: "#f7f7f7" }}>
+        <div
+          style={{
+            border: "1px solid #aaa",
+            padding: 10,
+            width: "40%",
+            background: "#f7f7f7",
+          }}
+        >
           {filteredSpareparts.length === 0 && <p>Tidak ditemukan...</p>}
 
           {filteredSpareparts.map((sp) => (

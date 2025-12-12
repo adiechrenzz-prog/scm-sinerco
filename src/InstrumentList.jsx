@@ -37,10 +37,9 @@ export default function InstrumentList() {
     });
   }, []);
 
-  // CHANGE HANDLER
-  const handleChange = (e) => {
+  // HANDLE INPUT
+  const handleChange = (e) =>
     setForm({ ...form, [e.target.name]: e.target.value });
-  };
 
   const resetForm = () => {
     setForm({
@@ -59,20 +58,16 @@ export default function InstrumentList() {
     setEditMode(false);
   };
 
-  // SAVE DATA
+  // SAVE / UPDATE
   const saveData = () => {
     if (!form.id || !form.instrument) {
-      alert("No. Unit & Nama Instrument wajib diisi");
+      alert("No Unit & Nama Instrument wajib diisi!");
       return;
     }
 
     const payload = { ...form };
 
-    if (editMode) {
-      update(ref(database, "instrumentList/" + form.id), payload);
-    } else {
-      set(ref(database, "instrumentList/" + form.id), payload);
-    }
+    set(ref(database, "instrumentList/" + form.id), payload);
 
     resetForm();
   };
@@ -97,6 +92,49 @@ export default function InstrumentList() {
       i.instrument.toLowerCase().includes(search.toLowerCase()) ||
       i.location.toLowerCase().includes(search.toLowerCase())
   );
+
+  // =======================
+  // IMPORT EXCEL
+  // =======================
+  const importExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = (evt) => {
+      const bytes = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(bytes, { type: "array" });
+
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+      rows.forEach((row) => {
+        if (!row.id) return;
+
+        const payload = {
+          id: row.id?.toString().trim(),
+          instrument: row.instrument || "",
+          serial: row.serial || "",
+          range: row.range || "",
+          merk: row.merk || "",
+          location: row.location || "",
+          pihakKalibrasi: row.pihakKalibrasi || "",
+          lastCal: row.lastCal || "",
+          nextCal: row.nextCal || "",
+          certificate: row.certificate || "",
+          status: row.status || "OK",
+        };
+
+        set(ref(database, "instrumentList/" + payload.id), payload);
+      });
+
+      alert("✔ Import Excel berhasil!");
+      e.target.value = "";
+    };
+
+    reader.readAsArrayBuffer(file);
+  };
 
   // EXPORT EXCEL
   const exportExcel = () => {
@@ -156,14 +194,22 @@ export default function InstrumentList() {
 
       {/* MENU */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        <button onClick={() => navigate("/dashboard")}>⬅️ Dashboard</button>
+        <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>
         <button onClick={() => navigate("/calibration-history")}>📘 Calibration History</button>
-        <button onClick={() => navigate("/calibration-certificate")}>📄 Calibration Certificate</button>
-        <button onClick={() => navigate("/calibration-reminder")}>⏰ Calibration Reminder</button>
-        <button onClick={() => navigate("/calibration-schedule")}>📅 Calibration Schedule</button>
+        <button onClick={() => navigate("/calibration-certificate")}>📄 Certificate</button>
+        <button onClick={() => navigate("/calibration-reminder")}>⏰ Reminder</button>
+        <button onClick={() => navigate("/calibration-schedule")}>📅 Schedule</button>
 
-        <button onClick={exportExcel}>⬇ Export Excel</button>
-        <button onClick={exportPDF}>⬇ Export PDF</button>
+        <button onClick={exportExcel}>⬇ Excel</button>
+        <button onClick={exportPDF}>⬇ PDF</button>
+
+        {/* IMPORT EXCEL */}
+        <input
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={importExcel}
+          style={{ marginLeft: 10 }}
+        />
       </div>
 
       {/* SEARCH */}
@@ -176,11 +222,10 @@ export default function InstrumentList() {
 
       {/* FORM */}
       <fieldset style={{ marginBottom: 16 }}>
-        <legend>{editMode ? "✏️ Edit Instrument" : "➕ Tambah Instrument"}</legend>
+        <legend>{editMode ? "✏ Edit Instrument" : "➕ Tambah Instrument"}</legend>
 
         <input name="id" placeholder="No Unit" value={form.id} onChange={handleChange} />
-
-        <input name="instrument" placeholder="Instrument Name" value={form.instrument} onChange={handleChange} />
+        <input name="instrument" placeholder="Instrument" value={form.instrument} onChange={handleChange} />
         <input name="serial" placeholder="Serial Number" value={form.serial} onChange={handleChange} />
         <input name="range" placeholder="Range" value={form.range} onChange={handleChange} />
         <input name="merk" placeholder="Merk" value={form.merk} onChange={handleChange} />
@@ -188,7 +233,7 @@ export default function InstrumentList() {
         <input name="pihakKalibrasi" placeholder="Pihak Kalibrasi" value={form.pihakKalibrasi} onChange={handleChange} />
         <input type="date" name="lastCal" value={form.lastCal} onChange={handleChange} />
         <input type="date" name="nextCal" value={form.nextCal} onChange={handleChange} />
-        <input name="certificate" placeholder="No Certificate" value={form.certificate} onChange={handleChange} />
+        <input name="certificate" placeholder="Certificate" value={form.certificate} onChange={handleChange} />
 
         <br />
         <button onClick={saveData}>{editMode ? "Update" : "Simpan"}</button>
@@ -227,7 +272,7 @@ export default function InstrumentList() {
               <td>{i.lastCal}</td>
               <td>{i.nextCal}</td>
               <td>{i.certificate}</td>
-              <td style={{ fontWeight: "bold", color: "green" }}>{i.status}</td>
+              <td style={{ fontWeight: "bold" }}>{i.status}</td>
 
               <td>
                 <button onClick={() => editData(i)}>Edit</button>{" "}
@@ -238,7 +283,9 @@ export default function InstrumentList() {
         </tbody>
       </table>
 
-      <p style={{ marginTop: 10, color: "#666" }}>✅ Data tersimpan ke Firebase Realtime Database</p>
+      <p style={{ marginTop: 10, color: "#666" }}>
+        ✔ Data tersimpan di Firebase
+      </p>
     </div>
   );
 }

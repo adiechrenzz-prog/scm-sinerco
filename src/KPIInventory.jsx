@@ -51,10 +51,12 @@ export default function KPIInventory() {
   };
 
   // ============================
-  // FILTER DATA PER BULAN
+  // FILTER DATA PER BULAN (FIXED)
   // ============================
   const filterByMonth = (arr) =>
-    arr.filter((x) => x.waktu && x.waktu.startsWith(month));
+    arr.filter((x) =>
+      String(x.waktu || "").startsWith(month) // <— FIX ERROR
+    );
 
   const inThisMonth = filterByMonth(incoming);
   const outThisMonth = filterByMonth(outgoing);
@@ -85,7 +87,7 @@ export default function KPIInventory() {
           ⬅ Dashboard
         </button>
 
-        <button onClick={() => (window.location.href = "/kpi-proc")}>
+        <button onClick={() => (window.location.href = "/kpi-procurement")}>
           📦 KPI Procurement
         </button>
 
@@ -155,10 +157,9 @@ export default function KPIInventory() {
       </table>
 
       <p style={{ marginTop: 12, color: "#666" }}>
-        ⚠ Catatan: perhitungan dibuat best-effort berdasarkan struktur data
-        yang ada sekarang. Jika ingin KPI akurat 100% (misalnya aging stok
-        per hari), maka stok harus direkam per transaksi sehingga KPI dapat
-        dihitung secara presisi.
+        ⚠ Catatan: perhitungan dibuat best-effort berdasarkan struktur
+        data sekarang. Untuk KPI yang lebih presisi (aging harian atau
+        stok historis), perlu pencatatan stok per transaksi.
       </p>
     </div>
   );

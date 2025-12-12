@@ -10,7 +10,6 @@ export default function DOPrint() {
   const navigate = useNavigate();
 
   const [loadingAuth, setLoadingAuth] = useState(true);
-
   const [allItems, setAllItems] = useState([]);
   const [searchDO, setSearchDO] = useState("");
 
@@ -38,7 +37,7 @@ export default function DOPrint() {
   }, []);
 
   // =======================
-  // FILTER BY NO. DO
+  // FILTER BY NO DO
   // =======================
   useEffect(() => {
     if (!searchDO.trim()) {
@@ -47,7 +46,9 @@ export default function DOPrint() {
     }
 
     const result = allItems.filter(
-      (i) => i.noDO && i.noDO.toString().toLowerCase() === searchDO.toLowerCase()
+      (i) =>
+        i.noDO &&
+        i.noDO.toString().toLowerCase() === searchDO.toLowerCase()
     );
 
     setFiltered(result);
@@ -56,23 +57,15 @@ export default function DOPrint() {
   if (loadingAuth) return <p>Checking login…</p>;
 
   // =======================
-  // TOTAL HARGA DO
-  // =======================
-  const totalHargaDO = filtered.reduce(
-    (t, a) => t + Number(a.totalHarga || 0),
-    0
-  );
-
-  // =======================
   // PRINT
   // =======================
   const printPage = () => window.print();
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>📦 Print Delivery Order (DO)</h2>
+      <h2>📄 Print Delivery Order (DO)</h2>
 
-      {/* NAVIGATION */}
+      {/* NAV */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button onClick={() => navigate("/dashboard")}>⬅ Dashboard</button>
         <button onClick={() => navigate("/barang-keluar")}>➖ Barang Keluar</button>
@@ -96,11 +89,7 @@ export default function DOPrint() {
         placeholder="Masukkan No. DO"
         value={searchDO}
         onChange={(e) => setSearchDO(e.target.value)}
-        style={{
-          padding: 5,
-          width: "250px",
-          fontSize: 16,
-        }}
+        style={{ padding: 6, width: 250, fontSize: 16 }}
       />
 
       {filtered.length > 0 && (
@@ -109,22 +98,21 @@ export default function DOPrint() {
 
           {/* HEADER DO */}
           <div style={{ marginBottom: 20 }}>
-            <h3>📄 Delivery Order</h3>
+            <h2 style={{ marginBottom: 5 }}>DELIVERY ORDER</h2>
+
             <p><b>No. DO:</b> {searchDO}</p>
             <p><b>Tanggal:</b> {filtered[0]?.waktu || "-"}</p>
             <p><b>Peminta:</b> {filtered[0]?.peminta || "-"}</p>
             <p><b>Tujuan:</b> {filtered[0]?.tujuan || "-"}</p>
           </div>
 
-          {/* TABLE */}
+          {/* TABLE WITHOUT PRICE */}
           <table border="1" width="100%" cellPadding="6">
             <thead>
               <tr>
                 <th>Part Number</th>
                 <th>Nama Barang</th>
                 <th>Jumlah</th>
-                <th>Harga Satuan</th>
-                <th>Total Harga</th>
               </tr>
             </thead>
 
@@ -134,22 +122,9 @@ export default function DOPrint() {
                   <td>{i.partnumber}</td>
                   <td>{i.nama}</td>
                   <td>{i.jumlah}</td>
-                  <td>{i.harga}</td>
-                  <td>{i.totalHarga}</td>
                 </tr>
               ))}
             </tbody>
-
-            <tfoot>
-              <tr>
-                <td colSpan={4} style={{ textAlign: "right", fontWeight: "bold" }}>
-                  Total Pengeluaran:
-                </td>
-                <td style={{ fontWeight: "bold" }}>
-                  Rp {totalHargaDO.toLocaleString()}
-                </td>
-              </tr>
-            </tfoot>
           </table>
 
           <br />
