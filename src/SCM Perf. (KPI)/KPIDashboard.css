@@ -1,0 +1,81 @@
+.kpi-wrapper {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle at center, #ffffff 0%, #f1f5f9 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.back-btn-kpi {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 12px 25px;
+  background: #0f172a;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+  z-index: 1000;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: 0.3s;
+}
+
+.back-btn-kpi:hover {
+  background: #fbbf24;
+  color: #0f172a;
+  transform: translateX(5px);
+}
+
+.kpi-svg {
+  filter: drop-shadow(0 25px 50px rgba(0,0,0,0.1));
+}
+
+.kpi-connector {
+  stroke: #94a3b8;
+  stroke-width: 2;
+  stroke-dasharray: 8,4;
+}
+
+.kpi-center-circle {
+  fill: #0f172a; /* Navy */
+}
+
+.kpi-center-text {
+  fill: #ffffff;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.kpi-node circle {
+  fill: #ffffff;
+  stroke: #0f172a;
+  stroke-width: 3;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.kpi-node:hover circle {
+  fill: #0f172a;
+  stroke: #fbbf24; /* Amber Glow */
+  stroke-width: 10;
+  r: 115;
+}
+
+.kpi-node-text {
+  fill: #0f172a;
+  font-size: 19px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.kpi-node:hover .kpi-node-text tspan {
+  fill: #ffffff !important;
+}
+
+.kpi-node {
+  cursor: pointer;
+}

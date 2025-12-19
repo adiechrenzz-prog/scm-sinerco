@@ -1,0 +1,103 @@
+.oil-wrapper {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle, #ffffff 0%, #fff7ed 100%); /* Warna krem lembut */
+  position: relative;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.oil-back-btn {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  padding: 12px 24px;
+  background-color: #92400e; /* Brown-Amber */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  z-index: 10;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.oil-back-btn:hover {
+  background-color: #78350f;
+  transform: translateX(-5px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.oil-svg {
+  filter: drop-shadow(0 20px 30px rgba(146, 64, 14, 0.15));
+}
+
+/* Garis penghubung putus-putus */
+.oil-line {
+  stroke: #d97706;
+  stroke-width: 3;
+  stroke-dasharray: 8, 8;
+  opacity: 0.3;
+}
+
+/* Lingkaran Pusat */
+.oil-center-circle {
+  fill: #92400e;
+  stroke: #fef3c7;
+  stroke-width: 10;
+}
+
+.oil-center-text {
+  fill: #ffffff;
+  font-weight: 800;
+  letter-spacing: 1px;
+  pointer-events: none;
+  text-transform: uppercase;
+}
+
+/* Node Menu Sekitar */
+.oil-node circle {
+  fill: #ffffff;
+  stroke: #92400e;
+  stroke-width: 5;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.oil-node:hover circle {
+  fill: #fffbeb;
+  stroke: #d97706;
+  r: 118; /* Sedikit membesar saat hover */
+}
+
+.oil-node-text {
+  fill: #92400e;
+  font-weight: 700;
+  font-size: 20px;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+
+.oil-node:hover .oil-node-text {
+  fill: #b45309;
+  font-size: 21px;
+}
+
+/* Animasi saat halaman dimuat */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.oil-svg {
+  animation: fadeInScale 0.8s ease-out forwards;
+}

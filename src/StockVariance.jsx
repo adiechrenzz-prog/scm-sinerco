@@ -1,43 +1,41 @@
-
-import { useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "./firebase";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { useState, useEffect } from "react";
+import { database } from "./firebase";
+import { ref, onValue } from "firebase/database";
 
 export default function StockVariance() {
-  const navigate = useNavigate();
+  const [variance, setVariance] = useState([]);
 
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet([]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "StockVariance");
-    XLSX.writeFile(wb, "StockVariance.xlsx");
-  };
-
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("StockVariance", 14, 14);
-    autoTable(doc, { head: [["Placeholder"]], body: [["Data"]] });
-    doc.save("StockVariance.pdf");
-  };
+  useEffect(() => {
+    const r = ref(database, "stockVariance");
+    onValue(r, (snap) => {
+      const val = snap.val() || {};
+      setVariance(Object.values(val));
+    });
+  }, []);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>StockVariance</h2>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <button onClick={() => navigate("/dashboard")}>Dashboard</button>
-        <button onClick={exportExcel}>Export Excel</button>
-        <button onClick={exportPDF}>Export PDF</button>
-        <button onClick={() => signOut(auth).then(() => navigate("/login"))}>
-          Logout
-        </button>
-      </div>
-
-      <hr />
-      <p>Template module. Siap dikembangkan.</p>
+    <div style={{ padding: "20px" }}>
+      <h2>📉 Stock Variance Report</h2>
+      <table style={{ width: "100%", background: "#fff" }}>
+        <thead>
+          <tr>
+            <th>Part Number</th>
+            <th>System Stock</th>
+            <th>Actual Stock</th>
+            <th>Difference</th>
+          </tr>
+        </thead>
+        <tbody>
+          {variance.map((v, i) => (
+            <tr key={i}>
+              <td>{v.partNo}</td>
+              <td>{v.system}</td>
+              <td>{v.actual}</td>
+              <td style={{ color: "red" }}>{v.actual - v.system}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

@@ -1,0 +1,25 @@
+.proc-wrapper {
+  width: 100vw; min-height: 100vh;
+  display: flex; justify-content: center; align-items: center;
+  background: radial-gradient(circle, #ffffff, #f1f5f9);
+  position: relative;
+}
+
+.proc-back-btn {
+  position: fixed; top: 20px; left: 20px;
+  padding: 12px 24px; background: #1e293b; color: white;
+  border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.proc-line { stroke: #64748b; stroke-width: 3; stroke-dasharray: 8,4; opacity: 0.5; }
+
+.proc-center-circle { fill: #1e293b; filter: drop-shadow(0 0 10px rgba(0,0,0,0.2)); }
+.proc-center-text { fill: white; font-weight: 800; letter-spacing: 1px; }
+
+.proc-node circle { fill: white; stroke: #1e293b; stroke-width: 4; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+.proc-node:hover circle { fill: #1e293b; r: 120; stroke: #38bdf8; }
+
+.proc-node-text { fill: #1e293b; font-size: 18px; font-weight: bold; pointer-events: none; }
+.proc-node:hover .proc-node-text tspan { fill: white; }
+.proc-node { cursor: pointer; }

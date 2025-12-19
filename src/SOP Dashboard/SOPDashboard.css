@@ -1,0 +1,89 @@
+.sop-wrapper {
+  width: 100vw;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle at center, #ffffff 0%, #eef2f3 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Tombol Kembali */
+.back-button {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 10px 20px;
+  background: #333;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.3s;
+  z-index: 1000;
+}
+
+.back-button:hover {
+  background: #7b003f;
+  transform: translateX(5px);
+}
+
+/* SVG & Animasi */
+.sop-svg {
+  filter: drop-shadow(0 15px 35px rgba(0,0,0,0.1));
+  animation: fadeIn 0.8s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.sop-connector {
+  stroke: #7b003f44;
+  stroke-width: 1.5;
+  stroke-dasharray: 5,5;
+}
+
+.sop-center-circle {
+  fill: #7b003f;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
+}
+
+.sop-center-text {
+  fill: white;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+/* Node Menu */
+.sop-node circle {
+  fill: rgba(255, 255, 255, 0.9);
+  stroke: #7b003f;
+  stroke-width: 2;
+  transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.sop-node-text {
+  fill: #444;
+  font-size: 18px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.sop-node:hover circle {
+  fill: #7b003f;
+  stroke: #fce4ec;
+  stroke-width: 6;
+  r: 105; /* Membesar sedikit saat hover */
+}
+
+.sop-node:hover text tspan {
+  fill: white !important;
+}
+
+.sop-node {
+  cursor: pointer;
+}

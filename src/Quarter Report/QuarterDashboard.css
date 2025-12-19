@@ -1,0 +1,23 @@
+.q-wrapper {
+  width: 100vw; min-height: 100vh;
+  display: flex; justify-content: center; align-items: center;
+  background: radial-gradient(circle, #ffffff, #ecfdf5);
+  position: relative;
+}
+
+.q-back-btn {
+  position: fixed; top: 20px; left: 20px;
+  padding: 10px 20px; background: #064e3b; color: white;
+  border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
+}
+
+.q-line { stroke: #059669; stroke-width: 2; stroke-dasharray: 5,5; opacity: 0.4; }
+
+.q-center-circle { fill: #064e3b; }
+.q-center-text { fill: white; font-weight: bold; }
+
+.q-node circle { fill: white; stroke: #064e3b; stroke-width: 3; transition: 0.3s; }
+.q-node:hover circle { fill: #064e3b; r: 115; }
+.q-node-text { fill: #064e3b; font-size: 18px; font-weight: bold; pointer-events: none; }
+.q-node:hover .q-node-text tspan { fill: white; }
+.q-node { cursor: pointer; }

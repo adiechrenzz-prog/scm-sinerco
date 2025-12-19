@@ -1,0 +1,55 @@
+.asset-loc-wrapper {
+  width: 100vw;
+  height: 100vh;
+  background: #f4f4f4;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.back-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  padding: 10px 15px;
+  background: #800000;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.connector-line {
+  stroke: #800000;
+  stroke-width: 2;
+  opacity: 0.3;
+}
+
+.hub-circle {
+  fill: #800000;
+}
+
+.hub-text {
+  fill: white;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.menu-node circle {
+  fill: white;
+  stroke: #800000;
+  stroke-width: 3;
+  transition: all 0.3s;
+}
+
+.menu-node:hover circle {
+  fill: #ffefef;
+  r: 105;
+}
+
+.node-text {
+  fill: #800000;
+  font-size: 16px;
+  font-weight: 600;
+}

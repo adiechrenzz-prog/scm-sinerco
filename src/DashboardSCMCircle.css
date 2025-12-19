@@ -1,88 +1,111 @@
-/* ===============================
-   RESET DASAR
-=============================== */
-* {
-  box-sizing: border-box;
-}
-
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  background: #ffffff;
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-/* ===============================
-   WRAPPER UTAMA
-=============================== */
-.scm-wrapper {
+/* Container Utama: Background Cerah Profesional */
+.dashboard-container {
   width: 100vw;
   height: 100vh;
-  background: #ffffff;
-
+  background: #f1f5f9; /* Soft Grey-Blue */
   display: flex;
   justify-content: center;
   align-items: center;
-
   position: relative;
   overflow: hidden;
+  font-family: 'Inter', sans-serif;
 }
 
-/* ===============================
-   SVG DASHBOARD
-=============================== */
-svg {
-  display: block;
+/* Wrapper agar SVG tetap di tengah dan responsif */
+.svg-wrapper {
+  width: 90vmin;
+  height: 90vmin;
 }
 
-/* ===============================
-   LINGKARAN TENGAH
-=============================== */
-.center-circle {
-  fill: #7b003f; /* maroon */
+.main-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-/* ===============================
-   TEKS TENGAH
-=============================== */
-.center-text {
+/* Garis Pemandu */
+.orbit-path {
+  fill: none;
+  stroke: #cbd5e1;
+  stroke-width: 1;
+  stroke-dasharray: 8 4;
+}
+
+.connector-line {
+  stroke: #941b4c;
+  stroke-width: 1.5;
+  opacity: 0.15;
+}
+
+/* Styling Hub Tengah */
+.hub-circle {
+  fill: #941b4c; /* Warna Maroon */
+  stroke: #ffffff;
+  stroke-width: 4;
+  filter: drop-shadow(0 8px 15px rgba(148, 27, 76, 0.3));
+}
+
+.hub-text {
   fill: #ffffff;
-  font-size: 40px;
-  font-weight: 1000;
-  letter-spacing: 1.5px;
-  user-select: none;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 1px;
 }
 
-/* ===============================
-   MENU NODE (LINGKARAN KECIL)
-=============================== */
-.menu-node circle {
-  fill: #6a1b9a;       /* UNGU */
+.hub-subtext {
+  font-size: 16px;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
+/* Styling Node Menu */
+.node-circle {
+  fill: #ffffff;
+  stroke: #941b4c;
+  stroke-width: 2.5;
+  transition: all 0.3s ease;
   cursor: pointer;
-  transition: transform 0s ease, fill 0s ease;
 }
 
-.menu-node:hover circle {
-  fill: #9c27b0;       /* UNGU LEBIH TERANG */
-  transform: scale(4.15);
+.node-label {
+  fill: #1e293b; /* Warna teks gelap agar jelas */
+  font-size: 16px;
+  font-weight: 700;
+  text-transform: uppercase;
+  pointer-events: none;
 }
 
-/* ===============================
-   TEKS MENU
-=============================== */
-.menu-node text {
+/* Hover Animasi */
+.menu-node:hover .node-circle {
+  fill: #941b4c;
+  stroke: #ffffff;
+  r: 82;
+  filter: drop-shadow(0 10px 20px rgba(148, 27, 76, 0.4));
+}
+
+.menu-node:hover .node-label {
   fill: #ffffff;
-  font-size: 30px;
-  font-weight: 600;
-  pointer-events: none; /* biar klik ke circle */
-  user-select: none;
 }
 
-/* ===============================
-   (OPTIONAL) SCROLLBAR OFF
-=============================== */
-::-webkit-scrollbar {
-  display: none;
+/* Tombol Logout Mini */
+.btn-logout-mini {
+  position: absolute;
+  top: 25px;
+  right: 25px;
+  background: #ffffff;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+  z-index: 10;
+}
+
+.btn-logout-mini:hover {
+  background: #ef4444;
+  color: #ffffff;
+  border-color: #ef4444;
 }

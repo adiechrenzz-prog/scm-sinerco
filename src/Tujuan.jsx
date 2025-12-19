@@ -1,79 +1,166 @@
 import { useEffect, useState } from "react";
-import { database } from "./firebase";
+import { database, auth } from "./firebase";
 import { ref, push, set, onValue, update, remove } from "firebase/database";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 
 export default function Tujuan() {
+  const navigate = useNavigate();
+  const [loadingAuth, setLoadingAuth] = useState(true);
   const [list, setList] = useState([]);
   const [form, setForm] = useState({ nama: "" });
   const [editId, setEditId] = useState(null);
 
+  // AUTH SESSION
+  useEffect(() => {
+    return onAuthStateChanged(auth, (u) => {
+      if (!u) navigate("/login");
+      setLoadingAuth(false);
+    });
+  }, [navigate]);
+
+  // LOAD DATABASE
   useEffect(() => {
     const r = ref(database, "tujuan");
     return onValue(r, snap => {
       const d = snap.val() || {};
-      setList(Object.values(d));
+      const arr = Object.keys(d).map(key => ({ id: key, ...d[key] }));
+      setList(arr);
     });
   }, []);
 
-  const save = () => {
-    if (!form.nama) return alert("Nama tujuan wajib!");
+  if (loadingAuth) return <div style={styles.loading}>Checking Session...</div>;
 
-    if (editId) {
-      update(ref(database, "tujuan/" + editId), form);
-      setEditId(null);
-    } else {
-      const id = push(ref(database, "tujuan")).key;
-      set(ref(database, "tujuan/" + id), { id, ...form });
+  const save = async () => {
+    if (!form.nama) return alert("Nama tujuan wajib diisi!");
+
+    try {
+      if (editId) {
+        await update(ref(database, "tujuan/" + editId), form);
+        setEditId(null);
+      } else {
+        const id = push(ref(database, "tujuan")).key;
+        await set(ref(database, "tujuan/" + id), { id, ...form });
+      }
+      setForm({ nama: "" });
+      alert("Data berhasil disimpan!");
+    } catch (err) {
+      alert("Gagal menyimpan data");
     }
-
-    setForm({ nama: "" });
   };
 
-  const editRow = r => {
+  const editRow = (r) => {
     setEditId(r.id);
-    setForm(r);
+    setForm({ nama: r.nama });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const deleteRow = id => {
-    if (window.confirm("Hapus tujuan?"))
+  const deleteRow = (id) => {
+    if (window.confirm("Hapus data tujuan ini?"))
       remove(ref(database, "tujuan/" + id));
   };
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>📍 Master Tujuan Barang Keluar</h2>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h2 style={{ margin: 0, color: "#7b003f" }}>📍 Master Tujuan Barang</h2>
+        <button style={styles.btnLog} onClick={() => { signOut(auth); navigate("/login"); }}>Logout</button>
+      </div>
 
-      <input
-        name="nama"
-        placeholder="Nama Tujuan"
-        value={form.nama}
-        onChange={(e) => setForm({ ...form, nama: e.target.value })}
-      />
+      {/* NAVIGASI LENGKAP (Sinkron dengan halaman lainnya) */}
+      <div style={styles.fullNavBar}>
+        <div style={styles.navGroup}>
+          <span style={styles.navLabel}>SISTEM</span>
+          <button style={styles.btnNav} onClick={() => navigate("/dashboard")}>🏠 Dashboard</button>
+          <button style={styles.btnNav} onClick={() => navigate("/inventory")}>📦 Inventory</button>
+        </div>
+        
+        <div style={styles.navGroup}>
+          <span style={styles.navLabel}>MASTER DATA</span>
+          <button style={styles.btnNav} onClick={() => navigate("/datapart")}>🛠 Datapart</button>
+          <button style={styles.btnNav} onClick={() => navigate("/supplier")}>🏢 Supplier</button>
+          <button style={styles.btnNav} onClick={() => navigate("/peminta")}>👤 Peminta</button>
+          <button style={{...styles.btnNav, background: "#7b003f", color: "#fff"}} onClick={() => navigate("/tujuan")}>📍 Tujuan</button>
+        </div>
 
-      <button onClick={save}>{editId ? "Update" : "Simpan"}</button>
+        <div style={styles.navGroup}>
+          <span style={styles.navLabel}>TRANSAKSI</span>
+          <button style={styles.btnNav} onClick={() => navigate("/barang-masuk")}>📥 Masuk</button>
+          <button style={styles.btnNav} onClick={() => navigate("/barang-keluar")}>📤 Keluar</button>
+        </div>
 
-      <hr />
+        <div style={styles.navGroup}>
+          <span style={styles.navLabel}>LAPORAN</span>
+          <button style={styles.btnNav} onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
+          <button style={styles.btnNav} onClick={() => navigate("/stock-opname")}>📋 Opname</button>
+        </div>
+      </div>
 
-      <table border="1" cellPadding="6" width="100%">
-        <thead>
-          <tr>
-            <th>Nama Tujuan</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
+      {/* FORM SECTION */}
+      <div style={styles.card}>
+        <h3>{editId ? "📝 Edit Tujuan" : "✨ Tambah Tujuan Baru"}</h3>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ flex: 1, minWidth: "300px" }}>
+            <label style={styles.label}>Nama Lokasi / Unit Tujuan</label>
+            <input 
+              placeholder="Contoh: Rig 01 atau Gudang Project" 
+              value={form.nama} 
+              onChange={(e) => setForm({ ...form, nama: e.target.value })} 
+              style={styles.input} 
+            />
+          </div>
+          <button onClick={save} style={styles.btnSave}>{editId ? "Update" : "Simpan"}</button>
+          {editId && <button onClick={() => { setEditId(null); setForm({ nama: "" }); }} style={styles.btnCancel}>Batal</button>}
+        </div>
+      </div>
 
-        <tbody>
-          {list.map(r => (
-            <tr key={r.id}>
-              <td>{r.nama}</td>
-              <td>
-                <button onClick={() => editRow(r)}>Edit</button>
-                <button onClick={() => deleteRow(r.id)}>Hapus</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {/* TABLE SECTION */}
+      <div style={styles.card}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={styles.table}>
+            <thead>
+              <tr style={{ background: "#f2f2f2" }}>
+                <th style={styles.th}>Nama Tujuan / Lokasi</th>
+                <th style={styles.th}>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.length > 0 ? list.map((r) => (
+                <tr key={r.id} style={styles.tr}>
+                  <td style={styles.td}><b>{r.nama}</b></td>
+                  <td style={styles.td}>
+                    <button onClick={() => editRow(r)} style={styles.btnEditSmall}>Edit</button>
+                    <button onClick={() => deleteRow(r.id)} style={styles.btnDelSmall}>Hapus</button>
+                  </td>
+                </tr>
+              )) : (
+                <tr><td colSpan="2" style={{textAlign: "center", padding: 20}}>Data tujuan belum tersedia.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
+
+const styles = {
+  container: { padding: "20px", backgroundColor: "#f4f7f6", minHeight: "100vh", fontFamily: "sans-serif" },
+  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
+  fullNavBar: { display: "flex", gap: "20px", marginBottom: "20px", background: "#fff", padding: "15px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", flexWrap: "wrap" },
+  navGroup: { display: "flex", flexDirection: "column", gap: "5px", borderLeft: "3px solid #7b003f", paddingLeft: "12px" },
+  navLabel: { fontSize: "10px", fontWeight: "bold", color: "#7b003f", marginBottom: "2px" },
+  btnNav: { padding: "7px 12px", cursor: "pointer", background: "#f8f9fa", border: "1px solid #ddd", borderRadius: "4px", fontSize: "12px", textAlign: "left" },
+  card: { background: "#fff", padding: "20px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", marginBottom: 20 },
+  label: { display: "block", fontSize: "12px", marginBottom: "5px", fontWeight: "bold" },
+  input: { padding: "10px", borderRadius: "4px", border: "1px solid #ddd", width: "100%", boxSizing: "border-box" },
+  btnSave: { background: "#7b003f", color: "#fff", border: "none", padding: "11px 25px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" },
+  btnCancel: { background: "#6c757d", color: "#fff", border: "none", padding: "11px 15px", borderRadius: "4px", cursor: "pointer" },
+  table: { width: "100%", borderCollapse: "collapse" },
+  th: { padding: "12px", textAlign: "left", color: "#666", fontSize: "13px", borderBottom: "2px solid #eee" },
+  td: { padding: "12px", fontSize: "14px", borderBottom: "1px solid #f9f9f9" },
+  btnEditSmall: { marginRight: 5, background: "#ffc107", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" },
+  btnDelSmall: { background: "#dc3545", color: "#fff", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" },
+  btnLog: { background: "#333", color: "#fff", border: "none", padding: "8px 15px", borderRadius: "6px", cursor: "pointer" },
+  loading: { textAlign: "center", padding: 50 }
+};

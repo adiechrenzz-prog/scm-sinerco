@@ -1,43 +1,28 @@
-
-import { useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "./firebase";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { useEffect, useState } from "react";
+import { database } from "./firebase";
+import { ref, onValue } from "firebase/database";
 
 export default function PMChecklist() {
-  const navigate = useNavigate();
+  const [tasks, setTasks] = useState([]);
 
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet([]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "PMChecklist");
-    XLSX.writeFile(wb, "PMChecklist.xlsx");
-  };
-
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("PMChecklist", 14, 14);
-    autoTable(doc, { head: [["Placeholder"]], body: [["Data"]] });
-    doc.save("PMChecklist.pdf");
-  };
+  useEffect(() => {
+    const r = ref(database, "pmChecklist");
+    onValue(r, (snap) => {
+      const val = snap.val() || {};
+      setTasks(Object.values(val));
+    });
+  }, []);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>PMChecklist</h2>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <button onClick={() => navigate("/dashboard")}>Dashboard</button>
-        <button onClick={exportExcel}>Export Excel</button>
-        <button onClick={exportPDF}>Export PDF</button>
-        <button onClick={() => signOut(auth).then(() => navigate("/login"))}>
-          Logout
-        </button>
+    <div style={{ padding: "20px" }}>
+      <h2>📋 PM Checklist</h2>
+      <div style={{ background: "#fff", padding: "15px", borderRadius: "8px" }}>
+        {tasks.map((t, idx) => (
+          <div key={idx} style={{ borderBottom: "1px solid #eee", padding: "10px" }}>
+            <input type="checkbox" /> <span style={{ marginLeft: "10px" }}>{t.taskName} - {t.unit}</span>
+          </div>
+        ))}
       </div>
-
-      <hr />
-      <p>Template module. Siap dikembangkan.</p>
     </div>
   );
 }

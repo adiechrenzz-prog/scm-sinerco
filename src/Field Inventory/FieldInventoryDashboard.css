@@ -1,0 +1,24 @@
+.field-inv-wrapper {
+  width: 100vw; height: 100vh;
+  display: flex; justify-content: center; align-items: center;
+  background: radial-gradient(circle, #ffffff, #ecfdf5);
+  position: relative;
+  overflow: hidden;
+}
+
+.field-inv-back-btn {
+  position: fixed; top: 20px; left: 20px;
+  padding: 10px 20px; background: #065f46; color: white;
+  border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
+  z-index: 10;
+}
+
+.field-inv-line { stroke: #10b981; stroke-width: 2; stroke-dasharray: 5,5; opacity: 0.4; }
+
+.field-inv-center-circle { fill: #065f46; stroke: #d1fae5; stroke-width: 8; }
+.field-inv-center-text { fill: white; font-weight: bold; font-size: 32px; text-transform: uppercase; }
+
+.field-inv-node circle { fill: white; stroke: #065f46; stroke-width: 4; transition: 0.3s; }
+.field-inv-node:hover circle { fill: #ecfdf5; stroke: #10b981; r: 115; }
+.field-inv-node-text { fill: #065f46; font-size: 18px; font-weight: bold; pointer-events: none; }
+.field-inv-node { cursor: pointer; }
