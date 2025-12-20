@@ -1,43 +1,39 @@
-
-import { useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "./firebase";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { useEffect, useState } from "react";
+import { database } from "./firebase";
+import { ref, onValue } from "firebase/database";
 
 export default function PMSchedule() {
-  const navigate = useNavigate();
+  const [schedules, setSchedules] = useState([]);
 
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet([]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "PMSchedule");
-    XLSX.writeFile(wb, "PMSchedule.xlsx");
-  };
-
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("PMSchedule", 14, 14);
-    autoTable(doc, { head: [["Placeholder"]], body: [["Data"]] });
-    doc.save("PMSchedule.pdf");
-  };
+  useEffect(() => {
+    const r = ref(database, "pmSchedule");
+    onValue(r, (snap) => {
+      const val = snap.val() || {};
+      setSchedules(Object.values(val));
+    });
+  }, []);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2>PMSchedule</h2>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <button onClick={() => navigate("/dashboard")}>Dashboard</button>
-        <button onClick={exportExcel}>Export Excel</button>
-        <button onClick={exportPDF}>Export PDF</button>
-        <button onClick={() => signOut(auth).then(() => navigate("/login"))}>
-          Logout
-        </button>
-      </div>
-
-      <hr />
-      <p>Template module. Siap dikembangkan.</p>
+    <div style={{ padding: "20px" }}>
+      <h2>📅 Maintenance Schedule</h2>
+      <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff" }}>
+        <thead>
+          <tr style={{ background: "#7b003f", color: "#fff" }}>
+            <th style={{ padding: "10px" }}>Unit ID</th>
+            <th>Description</th>
+            <th>Next Service</th>
+          </tr>
+        </thead>
+        <tbody>
+          {schedules.map((s, i) => (
+            <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
+              <td style={{ padding: "10px" }}>{s.unitId}</td>
+              <td>{s.desc}</td>
+              <td>{s.nextDate}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

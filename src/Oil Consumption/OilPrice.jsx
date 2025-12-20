@@ -1,43 +1,13 @@
-
+import React from 'react';
 import { useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "../firebase";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 export default function OilPrice() {
   const navigate = useNavigate();
-
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet([]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "OilPrice");
-    XLSX.writeFile(wb, "OilPrice.xlsx");
-  };
-
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("OilPrice", 14, 14);
-    autoTable(doc, { head: [["Placeholder"]], body: [["Data"]] });
-    doc.save("OilPrice.pdf");
-  };
-
   return (
-    <div style={{ padding: 20 }}>
-      <h2>OilPrice</h2>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <button onClick={() => navigate("/dashboard")}>Dashboard</button>
-        <button onClick={exportExcel}>Export Excel</button>
-        <button onClick={exportPDF}>Export PDF</button>
-        <button onClick={() => signOut(auth).then(() => navigate("/login"))}>
-          Logout
-        </button>
-      </div>
-
-      <hr />
-      <p>Template module. Siap dikembangkan.</p>
+    <div style={{ padding: '20px' }}>
+      <button onClick={() => navigate("/oil-dashboard")}>← Back</button>
+      <h2>Oil Price Database</h2>
+      <p>Daftar harga oli per liter/drum sesuai kontrak supplier.</p>
     </div>
   );
 }

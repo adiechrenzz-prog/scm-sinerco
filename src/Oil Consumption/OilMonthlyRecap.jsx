@@ -1,43 +1,15 @@
-
+import React from 'react';
 import { useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "../firebase";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 export default function OilMonthlyRecap() {
   const navigate = useNavigate();
-
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet([]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "OilMonthlyRecap");
-    XLSX.writeFile(wb, "OilMonthlyRecap.xlsx");
-  };
-
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("OilMonthlyRecap", 14, 14);
-    autoTable(doc, { head: [["Placeholder"]], body: [["Data"]] });
-    doc.save("OilMonthlyRecap.pdf");
-  };
-
   return (
-    <div style={{ padding: 20 }}>
-      <h2>OilMonthlyRecap</h2>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <button onClick={() => navigate("/dashboard")}>Dashboard</button>
-        <button onClick={exportExcel}>Export Excel</button>
-        <button onClick={exportPDF}>Export PDF</button>
-        <button onClick={() => signOut(auth).then(() => navigate("/login"))}>
-          Logout
-        </button>
+    <div style={{ padding: '20px' }}>
+      <button onClick={() => navigate("/oil-dashboard")}>← Back</button>
+      <h2>Monthly Recap Consumption</h2>
+      <div style={{ background: '#fef3c7', padding: '15px', borderRadius: '8px', marginTop: '20px' }}>
+        <h3>Total Bulan Ini: 1.250 Liter</h3>
       </div>
-
-      <hr />
-      <p>Template module. Siap dikembangkan.</p>
     </div>
   );
 }

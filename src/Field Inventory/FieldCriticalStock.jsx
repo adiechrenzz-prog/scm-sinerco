@@ -1,43 +1,13 @@
-
+import React from 'react';
 import { useNavigate } from "react-router-dom";
-import { signOut } from "firebase/auth";
-import { auth } from "../firebase";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 export default function FieldCriticalStock() {
   const navigate = useNavigate();
-
-  const exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet([]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "FieldCriticalStock");
-    XLSX.writeFile(wb, "FieldCriticalStock.xlsx");
-  };
-
-  const exportPDF = () => {
-    const doc = new jsPDF();
-    doc.text("FieldCriticalStock", 14, 14);
-    autoTable(doc, { head: [["Placeholder"]], body: [["Data"]] });
-    doc.save("FieldCriticalStock.pdf");
-  };
-
   return (
-    <div style={{ padding: 20 }}>
-      <h2>FieldCriticalStock</h2>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <button onClick={() => navigate("/dashboard")}>Dashboard</button>
-        <button onClick={exportExcel}>Export Excel</button>
-        <button onClick={exportPDF}>Export PDF</button>
-        <button onClick={() => signOut(auth).then(() => navigate("/login"))}>
-          Logout
-        </button>
-      </div>
-
-      <hr />
-      <p>Template module. Siap dikembangkan.</p>
+    <div style={{ padding: '20px' }}>
+      <button onClick={() => navigate("/field-inventory-dashboard")}>← Back</button>
+      <h2 style={{ color: '#dc2626' }}>Critical Stock Alert (Field)</h2>
+      <p>Daftar barang di lapangan yang sudah di bawah safety stock.</p>
     </div>
   );
 }
