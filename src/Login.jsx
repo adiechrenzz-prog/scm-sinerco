@@ -1,17 +1,13 @@
-import { useEffect, useState, useRef } from "react";
-import { auth, database } from "./firebase";
-import { signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
-import { ref, set, get } from "firebase/database";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { auth, db } from "./firebase"; 
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [field, setField] = useState("");
-  const isRedirecting = useRef(false); // Untuk mencegah loop kedip-kedip
-
-  const navigate = useNavigate();
+  const [field, setField] = useState(""); 
 
   const fields = [
     { id: "ho", name: "Head Office", path: "/dashboard-ho" },
@@ -28,150 +24,74 @@ export default function Login() {
     { id: "kemala", name: "Gunung Kemala", path: "/dashboard-kemala" },
   ];
 
-  // ✅ Auto-redirect diperbaiki agar tidak infinite loop
+  // Membersihkan sisa login setiap kali masuk halaman login
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user && !isRedirecting.current) {
-        isRedirecting.current = true; // Kunci proses redirect
-        try {
-          const snap = await get(ref(database, "users/" + user.uid));
-          if (snap.exists()) {
-            const userFieldId = snap.val().field;
-            const target = fields.find(f => f.id === userFieldId);
-            if (target) {
-              navigate(target.path, { replace: true });
-            }
-          }
-        } catch (err) {
-          console.error("Auth redirect error:", err);
-          isRedirecting.current = false;
-        }
-      }
-    });
-    return () => unsub();
-  }, [navigate]);
+    localStorage.clear();
+  }, []);
 
-  const login = async () => {
+  const handleLoginAction = async (e) => {
+    e.preventDefault();
     if (!email || !password || !field) {
-      alert("Mohon isi Email, Password, dan Pilih Lokasi Field!");
+      alert("Isi Email, Password, dan Pilih Lokasi!");
       return;
     }
 
+    setLoading(true);
+
     try {
-      setLoading(true);
+      // 1. Login ke Firebase Auth
       const res = await signInWithEmailAndPassword(auth, email, password);
-      const uid = res.user.uid;
+      
+      // 2. Ambil data HANYA dari Firestore (db) - Sesuai gambar Anda
+      const docRef = doc(db, "users", res.user.uid);
+      const snap = await getDoc(docRef);
 
-      // Simpan pilihan field ke database user
-      await set(ref(database, "users/" + uid), {
-        email,
-        field,
-        lastLogin: new Date().toISOString()
-      });
-
-      const selectedField = fields.find(f => f.id === field);
-      if (selectedField) {
-        isRedirecting.current = true;
-        navigate(selectedField.path, { replace: true });
+      if (snap.exists()) {
+        const userData = snap.data();
+        
+        // 3. Validasi: Admin atau Field Cocok
+        if (userData.field === "admin" || userData.field === field) {
+          // Simpan ke cache agar ProtectedField tidak bingung
+          localStorage.setItem("user_field_data", JSON.stringify(userData));
+          
+          const targetPath = fields.find(f => f.id === field).path;
+          
+          // 4. Navigasi Paksa untuk memutus loop
+          window.location.href = targetPath;
+        } else {
+          await signOut(auth);
+          alert(`Akses Ditolak! Akun Anda terdaftar di: ${userData.field.toUpperCase()}`);
+          setLoading(false);
+        }
+      } else {
+        await signOut(auth);
+        alert("Data Role tidak ditemukan di Firestore Koleksi 'users'!");
+        setLoading(false);
       }
-
     } catch (err) {
       console.error(err);
-      let msg = "Login Gagal!";
-      if (err.code === "auth/wrong-password") msg = "Password salah!";
-      if (err.code === "auth/user-not-found") msg = "Email tidak terdaftar!";
-      alert(msg);
-    } finally {
+      alert("Login Gagal: Periksa Email/Password Anda.");
       setLoading(false);
     }
   };
 
   return (
-    <div style={styles.container}>
-      <img 
-        src="/Logo-Sinerco.png" 
-        alt="Logo Sinerco" 
-        style={styles.logo} 
-        onError={(e) => e.target.style.display = 'none'} 
-      />
-      <h3 style={styles.title}>Inventory System Login</h3>
-
-      <div style={styles.form}>
-        <input
-          type="email"
-          placeholder="Email Address"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={styles.input}
-          autoComplete="email"
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={styles.input}
-          autoComplete="current-password"
-        />
-        
-        <select
-          value={field}
-          onChange={(e) => setField(e.target.value)}
-          style={styles.input}
-        >
-          <option value="">-- Pilih Lokasi Field --</option>
-          {fields.map((f) => (
-            <option key={f.id} value={f.id}>{f.name}</option>
-          ))}
-        </select>
-
-        <button 
-          onClick={login} 
-          disabled={loading} 
-          style={{...styles.button, opacity: loading ? 0.6 : 1}}
-        >
-          {loading ? "Authenticating..." : "Login Ke Dashboard"}
-        </button>
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", backgroundColor: "#f5f5f5" }}>
+      <div style={{ padding: "40px", width: "100%", maxWidth: "360px", textAlign: "center", borderRadius: "12px", background: "#fff", boxShadow: "0 4px 15px rgba(0,0,0,0.1)" }}>
+        <img src="/Logo-Sinerco.png" alt="Logo" style={{ width: "180px", marginBottom: "20px" }} />
+        <h3 style={{ marginBottom: "25px" }}>Inventory System Login</h3>
+        <form onSubmit={handleLoginAction} style={{ display: "flex", flexDirection: "column" }}>
+          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: "12px", marginBottom: "15px", borderRadius: "6px", border: "1px solid #ccc" }} required />
+          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: "12px", marginBottom: "15px", borderRadius: "6px", border: "1px solid #ccc" }} required />
+          <select value={field} onChange={(e) => setField(e.target.value)} style={{ padding: "12px", marginBottom: "15px", borderRadius: "6px", border: "1px solid #ccc" }} required>
+            <option value="">-- Pilih Lokasi Field --</option>
+            {fields.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+          </select>
+          <button type="submit" disabled={loading} style={{ padding: "12px", background: "#800020", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
+            {loading ? "Authenticating..." : "Login Ke Dashboard"}
+          </button>
+        </form>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    padding: "40px 25px",
-    maxWidth: "360px",
-    margin: "100px auto",
-    textAlign: "center",
-    border: "1px solid #ddd",
-    borderRadius: "12px",
-    background: "#fff",
-    boxShadow: "0 4px 15px rgba(0,0,0,0.1)",
-    fontFamily: "'Segoe UI', Tahoma, sans-serif"
-  },
-  logo: { width: "180px", marginBottom: "20px" },
-  title: { color: "#333", marginBottom: "25px", fontSize: "18px", fontWeight: "600" },
-  form: { display: "flex", flexDirection: "column" },
-  input: {
-    width: "100%",
-    padding: "12px",
-    marginBottom: "15px",
-    borderRadius: "6px",
-    border: "1px solid #ccc",
-    boxSizing: "border-box",
-    fontSize: "14px",
-    outline: "none"
-  },
-  button: {
-    width: "100%",
-    padding: "12px",
-    background: "#7b003f",
-    color: "#fff",
-    border: "none",
-    borderRadius: "6px",
-    fontWeight: "bold",
-    cursor: "pointer",
-    fontSize: "15px",
-    transition: "0.3s"
-  }
-};

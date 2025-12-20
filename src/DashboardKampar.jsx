@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 import { useNavigate } from "react-router-dom";
+import "./DashboardKampar.css"; 
 
 // Konfigurasi Menu
 const menus = [
@@ -21,7 +22,7 @@ const menus = [
   { label: "SCM Perf. (KPI)", path: "/kpi-dashboard" },
 ];
 
-export default function DashboardJatibarang() {
+export default function DashboardKampar() {
   const navigate = useNavigate();
   const [initializing, setInitializing] = useState(true);
 
@@ -36,7 +37,6 @@ export default function DashboardJatibarang() {
     return () => unsub();
   }, [navigate]);
 
-  // Pengaturan Dimensi SVG
   const size = 1000; 
   const center = size / 2;
   const radius = 380; 
@@ -44,13 +44,13 @@ export default function DashboardJatibarang() {
 
   const handleLogout = async () => {
     try {
-      // 1. Hapus cache field data untuk mencegah looping saat login lagi
+      // 1. Hapus cache data field agar tidak terjadi throttling saat login kembali
       localStorage.removeItem("user_field_data");
       
       // 2. Sign out dari Firebase
       await signOut(auth);
       
-      // 3. Navigasi ke login
+      // 3. Kembali ke login
       navigate("/login", { replace: true });
     } catch (error) {
       console.error("Logout error:", error);
@@ -59,124 +59,10 @@ export default function DashboardJatibarang() {
 
   if (initializing) return null;
 
-  const displayTitle = "JATIBARANG";
-
   return (
     <div className="dashboard-container">
-      <style>{`
-        .dashboard-container {
-          width: 100vw;
-          height: 100vh;
-          background: #f1f5f9;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          position: relative;
-          overflow: hidden;
-          font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
-        .dashboard-header {
-          position: absolute;
-          top: 15px;
-          width: 100%;
-          text-align: center;
-          z-index: 5;
-        }
-        .field-title {
-          color: #1e293b;
-          font-size: clamp(22px, 5vw, 36px);
-          font-weight: 900;
-          letter-spacing: 4px;
-          margin: 0;
-          text-transform: uppercase;
-          text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .svg-wrapper {
-          width: 88vmin;
-          height: 88vmin;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          margin-top: 40px;
-        }
-        .main-svg {
-          width: 100%;
-          height: 100%;
-          overflow: visible;
-        }
-        .orbit-path {
-          fill: none;
-          stroke: #cbd5e1;
-          stroke-width: 1.5;
-          stroke-dasharray: 8 4;
-        }
-        .connector-line {
-          stroke: #941b4c;
-          stroke-width: 1.2;
-          opacity: 0.2;
-        }
-        .hub-circle {
-          fill: #941b4c;
-          stroke: #fff;
-          stroke-width: 6;
-          filter: drop-shadow(0 6px 12px rgba(148, 27, 76, 0.3));
-        }
-        .hub-text {
-          fill: #fff;
-          font-size: 24px;
-          font-weight: bold;
-        }
-        .hub-subtext {
-          font-size: 16px;
-          font-weight: 300;
-        }
-        .menu-node {
-          cursor: pointer;
-        }
-        .node-circle {
-          fill: #fff;
-          stroke: #941b4c;
-          stroke-width: 3;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .menu-node:hover .node-circle {
-          fill: #941b4c;
-          r: 85; /* Sedikit membesar saat hover */
-          stroke: #fff;
-        }
-        .node-label {
-          fill: #334155;
-          font-size: 13px;
-          font-weight: 700;
-          pointer-events: none;
-          transition: fill 0.3s;
-        }
-        .menu-node:hover .node-label {
-          fill: #fff;
-        }
-        .btn-logout-mini {
-          position: absolute;
-          top: 20px;
-          right: 25px;
-          padding: 10px 18px;
-          background: #941b4c;
-          color: white;
-          border: none;
-          border-radius: 8px;
-          cursor: pointer;
-          font-weight: bold;
-          font-size: 12px;
-          z-index: 10;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-          transition: background 0.2s;
-        }
-        .btn-logout-mini:hover {
-          background: #7a163e;
-        }
-      `}</style>
-
       <div className="dashboard-header">
-        <h2 className="field-title">FIELD {displayTitle}</h2>
+        <h2 className="field-title">FIELD KAMPAR</h2>
       </div>
 
       <button className="btn-logout-mini" onClick={handleLogout}>LOGOUT</button>
@@ -194,7 +80,7 @@ export default function DashboardJatibarang() {
             return <line key={i} x1={center} y1={center} x2={x} y2={y} className="connector-line" />;
           })}
 
-          {/* Lingkaran Pusat (Hub) */}
+          {/* Lingkaran Pusat (Logo/Hub) */}
           <g className="center-hub">
             <circle cx={center} cy={center} r="145" className="hub-circle" />
             <text x={center} y={center} textAnchor="middle" className="hub-text">
@@ -209,7 +95,6 @@ export default function DashboardJatibarang() {
             const x = center + radius * Math.cos(angle);
             const y = center + radius * Math.sin(angle);
             
-            // Logika pemisahan kata untuk teks multi-baris
             const words = m.label.split(" ");
             const totalLines = words.length;
 
@@ -218,10 +103,10 @@ export default function DashboardJatibarang() {
                 <circle cx={x} cy={y} r="75" className="node-circle" />
                 <text x={x} y={y} textAnchor="middle" className="node-label">
                   {words.map((word, idx) => {
-                    // Kalkulasi offset vertikal agar teks tetap di tengah lingkaran
-                    const dy = idx === 0 ? -( (totalLines - 1) * 10 ) + 5 : 20;
+                    // Kalkulasi posisi vertikal teks agar selalu di tengah lingkaran
+                    const dyOffset = idx === 0 ? -( (totalLines - 1) * 10 ) + 5 : 22;
                     return (
-                      <tspan x={x} dy={dy} key={idx}>{word}</tspan>
+                      <tspan x={x} dy={dyOffset} key={idx}>{word}</tspan>
                     );
                   })}
                 </text>

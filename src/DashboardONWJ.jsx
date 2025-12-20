@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { signOut, onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 import { useNavigate } from "react-router-dom";
-import "./DashboardSCMCircle.css";
+import "./DashboardONWJ.css"; 
 
 const menus = [
   { label: "Inventory", path: "/inventory" },
@@ -21,11 +21,10 @@ const menus = [
   { label: "SCM Perf. (KPI)", path: "/kpi-dashboard" },
 ];
 
-export default function DashboardSCMCircle() {
+const DashboardONWJ = () => {
   const navigate = useNavigate();
   const [initializing, setInitializing] = useState(true);
 
-  // Proteksi Halaman
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (!user) {
@@ -37,15 +36,14 @@ export default function DashboardSCMCircle() {
     return () => unsub();
   }, [navigate]);
 
-  // Ukuran kanvas dan proporsi
   const size = 1000; 
-  const center = size / 2;
-  const radius = 380; 
+  const center = 500; 
+  const radius = 380;
   const angleStep = (2 * Math.PI) / menus.length;
 
   const handleLogout = async () => {
     try {
-      // 1. Hapus cache data field agar tidak error saat ganti akun
+      // 1. Hapus cache data field agar tidak terjadi throttling saat login ulang
       localStorage.removeItem("user_field_data");
       
       // 2. Sign out dari Firebase
@@ -62,66 +60,55 @@ export default function DashboardSCMCircle() {
 
   return (
     <div className="dashboard-container">
-      <button className="btn-logout-mini" onClick={handleLogout}>
-        LOGOUT
-      </button>
+      <div className="dashboard-header">
+        <h2 className="field-title">FIELD PHE ONWJ</h2>
+      </div>
+
+      <button className="btn-logout-mini" onClick={handleLogout}>LOGOUT</button>
 
       <div className="svg-wrapper">
-        <svg viewBox={`0 0 ${size} ${size}`} className="main-svg">
-          {/* Garis Orbit Halus */}
-          <circle cx={center} cy={center} r={radius} className="orbit-path" />
-
-          {/* Garis Penghubung dari Tengah */}
-          {menus.map((_, i) => {
-            const angle = i * angleStep - Math.PI / 2;
-            const x = center + radius * Math.cos(angle);
-            const y = center + radius * Math.sin(angle);
-            return (
-              <line 
-                key={i} 
-                x1={center} y1={center} x2={x} y2={y} 
-                className="connector-line" 
-              />
-            );
-          })}
-
-          {/* Pusat: Supply Chain Management */}
-          <g className="center-hub">
-            <circle cx={center} cy={center} r="130" className="hub-circle" />
-            <text x={center} y={center} textAnchor="middle" className="hub-text">
-              <tspan x={center} dy="-5">SUPPLY CHAIN</tspan>
-              <tspan x={center} dy="35" className="hub-subtext">MANAGEMENT</tspan>
-            </text>
-          </g>
-
-          {/* Node Menu */}
+        <svg viewBox="0 0 1000 1000" className="main-svg">
+          {/* Jalur Lingkaran Luar */}
+          <circle cx="500" cy="500" r="380" className="orbit-path" />
+          
+          {/* Menu Nodes */}
           {menus.map((m, i) => {
             const angle = i * angleStep - Math.PI / 2;
-            const x = center + radius * Math.cos(angle);
-            const y = center + radius * Math.sin(angle);
+            const x = 500 + 380 * Math.cos(angle);
+            const y = 500 + 380 * Math.sin(angle);
             
             const words = m.label.split(" ");
             const totalLines = words.length;
 
             return (
               <g key={i} className="menu-node" onClick={() => navigate(m.path)}>
+                <line x1="500" y1="500" x2={x} y2={y} className="connector-line" />
                 <circle cx={x} cy={y} r="75" className="node-circle" />
                 <text x={x} y={y} textAnchor="middle" className="node-label">
                   {words.map((word, idx) => {
-                    // Kalkulasi dyOffset agar teks 1, 2, atau 3 baris tetap di tengah
-                    const dyOffset = idx === 0 ? -( (totalLines - 1) * 10 ) + 5 : 20;
+                    // Penyesuaian dy agar teks multi-baris tetap di tengah lingkaran
+                    const dyOffset = idx === 0 ? -( (totalLines - 1) * 10 ) + 5 : 22;
                     return (
-                      <tspan x={x} dy={dyOffset} key={idx}>
-                        {word}
-                      </tspan>
+                      <tspan x={x} dy={dyOffset} key={idx}>{word}</tspan>
                     );
                   })}
                 </text>
               </g>
             );
           })}
+
+          {/* Lingkaran Pusat (Hub) */}
+          <g className="center-hub">
+            <circle cx="500" cy="500" r="145" className="hub-circle" />
+            <text x="500" y="500" textAnchor="middle" className="hub-text">
+              <tspan x="500" dy="-5">SUPPLY CHAIN</tspan>
+              <tspan x="500" dy="35" className="hub-subtext">MANAGEMENT</tspan>
+            </text>
+          </g>
         </svg>
       </div>
     </div>
   );
-}
+};
+
+export default DashboardONWJ;

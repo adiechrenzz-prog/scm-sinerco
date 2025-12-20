@@ -1,55 +1,127 @@
-.asset-loc-wrapper {
-  width: 100vw;
-  height: 100vh;
-  background: #f4f4f4;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
+/* RESET GLOBAL UNTUK MEMASTIKAN HALAMAN PUTIH BERSIH */
+html, body {
+  background-color: #ffffff !important;
+  margin: 0;
+  padding: 0;
 }
 
+.asset-loc-wrapper {
+  background-color: #ffffff !important;
+  background-image: radial-gradient(#e5e7eb 1.5px, transparent 1.5px);
+  background-size: 30px 30px;
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-family: 'Inter', sans-serif;
+  margin: 0;
+}
+
+/* PERBAIKAN TOMBOL BACK: Tetap Solid & Tidak Hilang Saat Diklik */
 .back-btn {
   position: absolute;
-  top: 20px;
-  left: 20px;
-  padding: 10px 15px;
-  background: #800000;
-  color: white;
-  border: none;
-  border-radius: 5px;
+  top: 30px;
+  left: 30px;
+  padding: 12px 24px;
+  background-color: #ffffff !important;
+  color: #1a374d !important;
+  border: 2px solid #1a374d !important;
+  border-radius: 8px;
+  font-weight: 700;
   cursor: pointer;
+  z-index: 100;
+  /* Kunci Visual */
+  opacity: 1 !important; 
+  transform: none !important;
+  transition: background-color 0.2s ease !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
+.back-btn:hover {
+  background-color: #1a374d !important;
+  color: #ffffff !important;
+}
+
+/* Memastikan saat diklik tombol tidak memudar atau mengecil */
+.back-btn:active {
+  background-color: #0d2131 !important; /* Warna lebih gelap sedikit saat ditekan */
+  color: #ffffff !important;
+  opacity: 1 !important; /* Mencegah efek seakan hilang */
+  transform: none !important; /* Mencegah gerakan */
+}
+
+.svg-container {
+  width: 100%;
+  max-width: 600px;
+  display: block;
+}
+
+/* Garis Penghubung Statis */
 .connector-line {
-  stroke: #800000;
-  stroke-width: 2;
-  opacity: 0.3;
+  stroke: #1a374d;
+  stroke-width: 4;
+  opacity: 0.2;
 }
 
+/* Lingkaran Pusat */
 .hub-circle {
-  fill: #800000;
+  fill: #1a374d;
+  stroke: #ffffff;
+  stroke-width: 8;
 }
 
 .hub-text {
-  fill: white;
-  font-size: 24px;
-  font-weight: bold;
+  fill: #ffffff !important;
+  font-size: 42px;
+  font-weight: 800;
+  pointer-events: none;
 }
 
-.menu-node circle {
-  fill: white;
-  stroke: #800000;
-  stroke-width: 3;
-  transition: all 0.3s;
-}
-
-.menu-node:hover circle {
-  fill: #ffefef;
-  r: 105;
+/* Node Menu: Berwarna & Diam */
+.node-circle {
+  fill: #ffffff;
+  stroke: #1a374d;
+  stroke-width: 4;
+  transition: fill 0.2s ease; 
+  transform: none !important;
 }
 
 .node-text {
-  fill: #800000;
-  font-size: 16px;
-  font-weight: 600;
+  fill: #1a374d;
+  font-size: 32px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Interaksi Lingkaran: Hanya Warna, Tanpa Gerakan */
+.menu-node {
+  cursor: pointer;
+  outline: none !important;
+}
+
+.menu-node:hover .node-circle,
+.menu-node:active .node-circle {
+  fill: #1a374d !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+.menu-node:hover .node-text,
+.menu-node:active .node-text {
+  fill: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* Block Global Animation/Transform pada elemen SVG */
+.asset-loc-svg * {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.menu-node * {
+  transform: none !important;
+  transition-property: fill, stroke !important;
 }

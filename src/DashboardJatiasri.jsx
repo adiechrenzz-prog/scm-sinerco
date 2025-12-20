@@ -3,7 +3,7 @@ import { signOut, onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 import { useNavigate } from "react-router-dom";
 
-// Konfigurasi Menu
+// Konfigurasi Menu (Sama dengan Jatibarang)
 const menus = [
   { label: "Inventory", path: "/inventory" },
   { label: "Instrument Cal.", path: "/instrument-list" },
@@ -21,7 +21,7 @@ const menus = [
   { label: "SCM Perf. (KPI)", path: "/kpi-dashboard" },
 ];
 
-export default function DashboardJatibarang() {
+export default function DashboardJatiasri() {
   const navigate = useNavigate();
   const [initializing, setInitializing] = useState(true);
 
@@ -44,13 +44,7 @@ export default function DashboardJatibarang() {
 
   const handleLogout = async () => {
     try {
-      // 1. Hapus cache field data untuk mencegah looping saat login lagi
-      localStorage.removeItem("user_field_data");
-      
-      // 2. Sign out dari Firebase
       await signOut(auth);
-      
-      // 3. Navigasi ke login
       navigate("/login", { replace: true });
     } catch (error) {
       console.error("Logout error:", error);
@@ -59,7 +53,8 @@ export default function DashboardJatibarang() {
 
   if (initializing) return null;
 
-  const displayTitle = "JATIBARANG";
+  // Identitas Khusus Jatiasri
+  const displayTitle = "JATIASRI";
 
   return (
     <div className="dashboard-container">
@@ -77,7 +72,7 @@ export default function DashboardJatibarang() {
         }
         .dashboard-header {
           position: absolute;
-          top: 15px;
+          top: 15px; 
           width: 100%;
           text-align: center;
           z-index: 5;
@@ -141,7 +136,7 @@ export default function DashboardJatibarang() {
         }
         .menu-node:hover .node-circle {
           fill: #941b4c;
-          r: 85; /* Sedikit membesar saat hover */
+          r: 85;
           stroke: #fff;
         }
         .node-label {
@@ -149,7 +144,6 @@ export default function DashboardJatibarang() {
           font-size: 13px;
           font-weight: 700;
           pointer-events: none;
-          transition: fill 0.3s;
         }
         .menu-node:hover .node-label {
           fill: #fff;
@@ -168,7 +162,6 @@ export default function DashboardJatibarang() {
           font-size: 12px;
           z-index: 10;
           box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-          transition: background 0.2s;
         }
         .btn-logout-mini:hover {
           background: #7a163e;
@@ -183,10 +176,8 @@ export default function DashboardJatibarang() {
 
       <div className="svg-wrapper">
         <svg viewBox={`0 0 ${size} ${size}`} className="main-svg">
-          {/* Jalur Lingkaran Luar */}
           <circle cx={center} cy={center} r={radius} className="orbit-path" />
 
-          {/* Garis-garis Penghubung ke Pusat */}
           {menus.map((_, i) => {
             const angle = i * angleStep - Math.PI / 2;
             const x = center + radius * Math.cos(angle);
@@ -194,7 +185,6 @@ export default function DashboardJatibarang() {
             return <line key={i} x1={center} y1={center} x2={x} y2={y} className="connector-line" />;
           })}
 
-          {/* Lingkaran Pusat (Hub) */}
           <g className="center-hub">
             <circle cx={center} cy={center} r="145" className="hub-circle" />
             <text x={center} y={center} textAnchor="middle" className="hub-text">
@@ -203,27 +193,19 @@ export default function DashboardJatibarang() {
             </text>
           </g>
 
-          {/* Item Menu Berbentuk Lingkaran */}
           {menus.map((m, i) => {
             const angle = i * angleStep - Math.PI / 2;
             const x = center + radius * Math.cos(angle);
             const y = center + radius * Math.sin(angle);
-            
-            // Logika pemisahan kata untuk teks multi-baris
             const words = m.label.split(" ");
-            const totalLines = words.length;
 
             return (
               <g key={i} className="menu-node" onClick={() => navigate(m.path)}>
                 <circle cx={x} cy={y} r="75" className="node-circle" />
                 <text x={x} y={y} textAnchor="middle" className="node-label">
-                  {words.map((word, idx) => {
-                    // Kalkulasi offset vertikal agar teks tetap di tengah lingkaran
-                    const dy = idx === 0 ? -( (totalLines - 1) * 10 ) + 5 : 20;
-                    return (
-                      <tspan x={x} dy={dy} key={idx}>{word}</tspan>
-                    );
-                  })}
+                  {words.map((word, idx) => (
+                    <tspan x={x} dy={idx === 0 ? "5" : "22"} key={idx}>{word}</tspan>
+                  ))}
                 </text>
               </g>
             );
