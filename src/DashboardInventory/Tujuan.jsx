@@ -1,166 +1,171 @@
-import { useEffect, useState } from "react";
-import { database, auth } from "../firebase";
-import { ref, push, set, onValue, update, remove } from "firebase/database";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
+import "./DashboardInventory.css"; // Diubah agar sesuai dengan file CSS di folder Anda
 
 export default function Tujuan() {
   const navigate = useNavigate();
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  const [list, setList] = useState([]);
-  const [form, setForm] = useState({ nama: "" });
-  const [editId, setEditId] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const hasFetched = useRef(false);
 
-  // AUTH SESSION
-  useEffect(() => {
-    return onAuthStateChanged(auth, (u) => {
-      if (!u) navigate("/login");
-      setLoadingAuth(false);
-    });
-  }, [navigate]);
+  // Link Spreadsheet tujuan (Output CSV)
+  const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRB7U6oyLsL5DcXW5cja8gY60PcTBX0v-KxnR1rRaXM6cJCRAO8JZQ-H9FjTiCRG49m5IHR2dcX8fuB/pub?gid=352818374&single=true&output=csv";
+  
+  // Link Edit (Opsional untuk tombol buka spreadsheet)
+  const SPREADSHEET_EDIT_URL = "https://docs.google.com/spreadsheets/d/1RB7U6oyLsL5DcXW5cja8gY60PcTBX0v-KxnR1rRaXM6cJCRAO8JZQ-H9FjTiCRG49m5IHR2dcX8fuB/edit";
 
-  // LOAD DATABASE
-  useEffect(() => {
-    const r = ref(database, "tujuan");
-    return onValue(r, snap => {
-      const d = snap.val() || {};
-      const arr = Object.keys(d).map(key => ({ id: key, ...d[key] }));
-      setList(arr);
-    });
+  const [tujuanData, setTujuanData] = useState(() => {
+    const savedData = localStorage.getItem("scm_tujuan_data");
+    return savedData ? JSON.parse(savedData) : [];
+  });
+
+  const [backupData, setBackupData] = useState([]);
+
+  const mapDataToState = useCallback((rawData) => {
+    return rawData.map((row, index) => {
+      const getVal = (keywords) => {
+        const key = Object.keys(row).find(k => 
+          keywords.some(word => k.toLowerCase().trim() === word.toLowerCase())
+        );
+        if (!key) return "";
+        const val = row[key];
+        return val !== undefined && val !== null ? String(val).trim() : "";
+      };
+
+      return {
+        // Mengambil ID asli jika ada, jika tidak pakai index
+        id: getVal(["id"]) || `id-${index}`,
+        customer: getVal(["customer"]),
+        namaCustomer: getVal(["nama customer"]),
+        alamat: getVal(["alamat"])
+      };
+    }).filter(item => item.customer || item.namaCustomer);
   }, []);
 
-  if (loadingAuth) return <div style={styles.loading}>Checking Session...</div>;
-
-  const save = async () => {
-    if (!form.nama) return alert("Nama tujuan wajib diisi!");
-
+  const refreshFromCloud = useCallback(async () => {
+    if (isLoading) return;
+    setIsLoading(true);
     try {
-      if (editId) {
-        await update(ref(database, "tujuan/" + editId), form);
-        setEditId(null);
-      } else {
-        const id = push(ref(database, "tujuan")).key;
-        await set(ref(database, "tujuan/" + id), { id, ...form });
+      const response = await fetch(`${SPREADSHEET_CSV_URL}&t=${new Date().getTime()}`);
+      const csvText = await response.text();
+      const workbook = XLSX.read(csvText, { type: 'string' });
+      const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { 
+        defval: "" 
+      });
+      
+      const finalData = mapDataToState(rawData);
+      if (finalData.length > 0) {
+        setTujuanData(finalData);
+        localStorage.setItem("scm_tujuan_data", JSON.stringify(finalData));
       }
-      setForm({ nama: "" });
-      alert("Data berhasil disimpan!");
-    } catch (err) {
-      alert("Gagal menyimpan data");
+    } catch (error) {
+      console.error("Gagal sinkron data tujuan:", error);
+    } finally {
+      setTimeout(() => setIsLoading(false), 500);
     }
-  };
+  }, [mapDataToState, isLoading]);
 
-  const editRow = (r) => {
-    setEditId(r.id);
-    setForm({ nama: r.nama });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  useEffect(() => {
+    if (!hasFetched.current) {
+      refreshFromCloud();
+      hasFetched.current = true;
+    }
+  }, [refreshFromCloud]);
+
+  const handleCellChange = (id, field, value) => {
+    setTujuanData(prev => prev.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
   };
 
   const deleteRow = (id) => {
-    if (window.confirm("Hapus data tujuan ini?"))
-      remove(ref(database, "tujuan/" + id));
+    if (window.confirm("Hapus data customer ini?")) {
+      setTujuanData(tujuanData.filter(item => item.id !== id));
+    }
+  };
+
+  const startEditing = () => {
+    setBackupData(JSON.parse(JSON.stringify(tujuanData)));
+    setIsEditing(true);
+  };
+
+  const cancelChanges = () => {
+    if (window.confirm("Batalkan semua perubahan?")) {
+      setTujuanData(backupData);
+      setIsEditing(false);
+    }
+  };
+
+  const saveChanges = () => {
+    localStorage.setItem("scm_tujuan_data", JSON.stringify(tujuanData));
+    setIsEditing(false);
+    alert("Data berhasil disimpan lokal!");
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={{ margin: 0, color: "#7b003f" }}>📍 Master Tujuan Barang</h2>
-        <button style={styles.btnLog} onClick={() => { signOut(auth); navigate("/login"); }}>Logout</button>
-      </div>
-
-      {/* NAVIGASI LENGKAP (Sinkron dengan halaman lainnya) */}
-      <div style={styles.fullNavBar}>
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>SISTEM</span>
-          <button style={styles.btnNav} onClick={() => navigate("/dashboard")}>🏠 Dashboard</button>
-          <button style={styles.btnNav} onClick={() => navigate("/inventory")}>📦 Inventory</button>
-        </div>
+    <div className="sasaran-container">
+      <div className="sasaran-nav" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f4f4f4', alignItems: 'center' }}>
+        <button className="btn-home" onClick={() => navigate("/dashboard-inventory")}>← BACK</button>
         
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>MASTER DATA</span>
-          <button style={styles.btnNav} onClick={() => navigate("/datapart")}>🛠 Datapart</button>
-          <button style={styles.btnNav} onClick={() => navigate("/supplier")}>🏢 Supplier</button>
-          <button style={styles.btnNav} onClick={() => navigate("/peminta")}>👤 Peminta</button>
-          <button style={{...styles.btnNav, background: "#7b003f", color: "#fff"}} onClick={() => navigate("/tujuan")}>📍 Tujuan</button>
-        </div>
-
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>TRANSAKSI</span>
-          <button style={styles.btnNav} onClick={() => navigate("/barang-masuk")}>📥 Masuk</button>
-          <button style={styles.btnNav} onClick={() => navigate("/barang-keluar")}>📤 Keluar</button>
-        </div>
-
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>LAPORAN</span>
-          <button style={styles.btnNav} onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
-          <button style={styles.btnNav} onClick={() => navigate("/stock-opname")}>📋 Opname</button>
-        </div>
-      </div>
-
-      {/* FORM SECTION */}
-      <div style={styles.card}>
-        <h3>{editId ? "📝 Edit Tujuan" : "✨ Tambah Tujuan Baru"}</h3>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div style={{ flex: 1, minWidth: "300px" }}>
-            <label style={styles.label}>Nama Lokasi / Unit Tujuan</label>
-            <input 
-              placeholder="Contoh: Rig 01 atau Gudang Project" 
-              value={form.nama} 
-              onChange={(e) => setForm({ ...form, nama: e.target.value })} 
-              style={styles.input} 
-            />
-          </div>
-          <button onClick={save} style={styles.btnSave}>{editId ? "Update" : "Simpan"}</button>
-          {editId && <button onClick={() => { setEditId(null); setForm({ nama: "" }); }} style={styles.btnCancel}>Batal</button>}
+        <div className="action-buttons" style={{ display: 'flex', gap: '8px' }}>
+          {!isEditing ? (
+            <>
+              <a href={SPREADSHEET_EDIT_URL} target="_blank" rel="noopener noreferrer">
+                <button style={{ backgroundColor: '#1d6f42', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  🌐 Edit Spreadsheet
+                </button>
+              </a>
+              <button onClick={refreshFromCloud} disabled={isLoading} style={{ backgroundColor: "#f1c40f", border: "none", padding: "8px 15px", borderRadius: "5px", color: "#333", fontWeight: "bold", cursor: "pointer" }}>
+                {isLoading ? "🔄 Sinkron..." : "☁️ Sync Cloud"}
+              </button>
+              <button onClick={startEditing} style={{ backgroundColor: '#e67e22', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>✏️ Edit Tabel</button>
+            </>
+          ) : (
+            <>
+              <button onClick={saveChanges} style={{ backgroundColor: '#2ecc71', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>💾 Simpan</button>
+              <button onClick={cancelChanges} style={{ backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>✖ Batal</button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* TABLE SECTION */}
-      <div style={styles.card}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={{ background: "#f2f2f2" }}>
-                <th style={styles.th}>Nama Tujuan / Lokasi</th>
-                <th style={styles.th}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.length > 0 ? list.map((r) => (
-                <tr key={r.id} style={styles.tr}>
-                  <td style={styles.td}><b>{r.nama}</b></td>
-                  <td style={styles.td}>
-                    <button onClick={() => editRow(r)} style={styles.btnEditSmall}>Edit</button>
-                    <button onClick={() => deleteRow(r.id)} style={styles.btnDelSmall}>Hapus</button>
+      <h2 style={{ textAlign: 'center', margin: '20px 0' }}>MASTER DATA TUJUAN / CUSTOMER</h2>
+
+      <div className="table-responsive" style={{ padding: '0 20px', overflowX: 'auto' }}>
+        <table className="kpi-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '14px' }}>
+          <thead style={{ backgroundColor: '#2c3e50', color: 'white' }}>
+            <tr>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>ID</th>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>Customer</th>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>Nama Customer</th>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>Alamat</th>
+              {isEditing && <th style={{ border: '1px solid #444', padding: '10px', backgroundColor: '#c0392b' }}>Aksi</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {tujuanData.map((item) => (
+              <tr key={item.id} style={{ backgroundColor: '#fff' }}>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center', padding: '8px' }}>{item.id}</td>
+                <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                  {isEditing ? <input style={{ width: '100%' }} value={item.customer} onChange={e => handleCellChange(item.id, "customer", e.target.value)} /> : item.customer}
+                </td>
+                <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                  {isEditing ? <input style={{ width: '100%' }} value={item.namaCustomer} onChange={e => handleCellChange(item.id, "namaCustomer", e.target.value)} /> : item.namaCustomer}
+                </td>
+                <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                  {isEditing ? <input style={{ width: '100%' }} value={item.alamat} onChange={e => handleCellChange(item.id, "alamat", e.target.value)} /> : item.alamat}
+                </td>
+                {isEditing && (
+                  <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>
+                    <button onClick={() => deleteRow(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }}>🗑️</button>
                   </td>
-                </tr>
-              )) : (
-                <tr><td colSpan="2" style={{textAlign: "center", padding: 20}}>Data tujuan belum tersedia.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: { padding: "20px", backgroundColor: "#f4f7f6", minHeight: "100vh", fontFamily: "sans-serif" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
-  fullNavBar: { display: "flex", gap: "20px", marginBottom: "20px", background: "#fff", padding: "15px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", flexWrap: "wrap" },
-  navGroup: { display: "flex", flexDirection: "column", gap: "5px", borderLeft: "3px solid #7b003f", paddingLeft: "12px" },
-  navLabel: { fontSize: "10px", fontWeight: "bold", color: "#7b003f", marginBottom: "2px" },
-  btnNav: { padding: "7px 12px", cursor: "pointer", background: "#f8f9fa", border: "1px solid #ddd", borderRadius: "4px", fontSize: "12px", textAlign: "left" },
-  card: { background: "#fff", padding: "20px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", marginBottom: 20 },
-  label: { display: "block", fontSize: "12px", marginBottom: "5px", fontWeight: "bold" },
-  input: { padding: "10px", borderRadius: "4px", border: "1px solid #ddd", width: "100%", boxSizing: "border-box" },
-  btnSave: { background: "#7b003f", color: "#fff", border: "none", padding: "11px 25px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" },
-  btnCancel: { background: "#6c757d", color: "#fff", border: "none", padding: "11px 15px", borderRadius: "4px", cursor: "pointer" },
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: { padding: "12px", textAlign: "left", color: "#666", fontSize: "13px", borderBottom: "2px solid #eee" },
-  td: { padding: "12px", fontSize: "14px", borderBottom: "1px solid #f9f9f9" },
-  btnEditSmall: { marginRight: 5, background: "#ffc107", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" },
-  btnDelSmall: { background: "#dc3545", color: "#fff", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" },
-  btnLog: { background: "#333", color: "#fff", border: "none", padding: "8px 15px", borderRadius: "6px", cursor: "pointer" },
-  loading: { textAlign: "center", padding: 50 }
-};

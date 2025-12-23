@@ -29,6 +29,7 @@ import Supplier from "./DashboardInventory/Supplier";
 import Tujuan from "./DashboardInventory/Tujuan";
 import DOPrint from "./DashboardInventory/DOPrint";
 import FieldManager from "./DashboardInventory/FieldManager";
+import StockOpname from "./DashboardInventory/StockOpname";
 
 /* --- IMPORT MODUL STOCK OPNAME --- */
 import DashboardStockOpname from "./StockOpname/DashboardStockOpname";
@@ -143,6 +144,7 @@ export default function App() {
       <Route path="/tujuan" element={<ProtectedField><Tujuan /></ProtectedField>} />
       <Route path="/do-print" element={<ProtectedField><DOPrint /></ProtectedField>} />
       <Route path="/field-manager" element={<ProtectedField field="admin"><FieldManager /></ProtectedField>} />
+      <Route path="/stock-opname" element={<ProtectedField><StockOpname /></ProtectedField>} />
 
       <Route path="/dashboard-stock-opname" element={<ProtectedField><DashboardStockOpname /></ProtectedField>} />
       <Route path="/stock-opname-field" element={<ProtectedField><StockOpnameField /></ProtectedField>} />

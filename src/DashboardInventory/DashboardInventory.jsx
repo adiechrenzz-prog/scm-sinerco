@@ -11,6 +11,7 @@ const invMenus = [
   { label: "Supplier", path: "/supplier" },
   { label: "Tujuan", path: "/tujuan" },
   { label: "DO Print", path: "/do-print" },
+  { label: "Stock Opname", path: "/stock-opname"},
 ];
 
 export default function DashboardInventory() {

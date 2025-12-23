@@ -1,248 +1,175 @@
-import { useEffect, useState, useRef } from "react";
-import { database, auth } from "../firebase";
-import { ref, onValue, push, set, remove, update } from "firebase/database";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
+import "./DashboardInventory.css";
 
 export default function Inventory() {
   const navigate = useNavigate();
-  const fileInputRef = useRef(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const hasFetched = useRef(false);
 
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  const [items, setItems] = useState([]);
-  const [spareparts, setSpareparts] = useState([]);
-  const [searchText, setSearchText] = useState(""); 
-  const [tableFilter, setTableFilter] = useState(""); 
-  const [editId, setEditId] = useState(null);
+  // Link Spreadsheet Inventory (GID 2142713703)
+  const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRB7U6oyLsL5DcXW5cja8gY60PcTBX0v-KxnR1rRaXM6cJCRAO8JZQ-H9FjTiCRG49m5IHR2dcX8fuB/pub?gid=2142713703&single=true&output=csv";
+  const SPREADSHEET_EDIT_URL = "https://docs.google.com/spreadsheets/d/1RB7U6oyLsL5DcXW5cja8gY60PcTBX0v-KxnR1rRaXM6cJCRAO8JZQ-H9FjTiCRG49m5IHR2dcX8fuB/edit#gid=2142713703";
 
-  const [form, setForm] = useState({
-    partnumber: "", nama: "", stok: "", satuan: "", harga: "", gudang: "", rack: "",
+  const [inventoryData, setInventoryData] = useState(() => {
+    const savedData = localStorage.getItem("scm_inventory_full_data");
+    return savedData ? JSON.parse(savedData) : [];
   });
 
-  const formatIDR = (val) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(val);
+  const [backupData, setBackupData] = useState([]);
+
+  // Fungsi pembersihan angka
+  const parseNum = (val) => {
+    if (!val) return 0;
+    const n = parseFloat(String(val).replace(/[^0-9.-]+/g, ""));
+    return isNaN(n) ? 0 : n;
+  };
+
+  const mapDataToState = useCallback((rawData) => {
+    return rawData.map((row, index) => {
+      const getVal = (keywords) => {
+        const key = Object.keys(row).find(k => 
+          keywords.some(word => k.toLowerCase().trim() === word.toLowerCase())
+        );
+        return key ? String(row[key]).trim() : "";
+      };
+
+      const stok = parseNum(getVal(["stok"]));
+      const harga = parseNum(getVal(["harga satuan", "harga"]));
+
+      return {
+        id: getVal(["id barang", "id"]) || `INV-${index + 1}`,
+        namaBarang: getVal(["nama barang", "item"]),
+        stok: stok,
+        satuan: getVal(["satuan"]),
+        gudang: getVal(["gudang"]),
+        hargaSatuan: harga,
+        total: stok * harga,
+        rackInfo: getVal(["rack info", "rack", "rak"]),
+        sisaBarang: getVal(["sisa barang", "sisa"]),
+        leadTime: getVal(["lead time"])
+      };
+    }).filter(item => item.namaBarang);
+  }, []);
+
+  const refreshFromCloud = useCallback(async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${SPREADSHEET_CSV_URL}&t=${new Date().getTime()}`);
+      const csvText = await response.text();
+      const workbook = XLSX.read(csvText, { type: 'string' });
+      const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+      
+      const finalData = mapDataToState(rawData);
+      if (finalData.length > 0) {
+        setInventoryData(finalData);
+        localStorage.setItem("scm_inventory_full_data", JSON.stringify(finalData));
+      }
+    } catch (error) {
+      console.error("Gagal sinkron data inventory:", error);
+    } finally {
+      setTimeout(() => setIsLoading(false), 500);
+    }
+  }, [mapDataToState, isLoading]);
 
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (u) => {
-      if (!u) navigate("/login");
-      setLoadingAuth(false);
-    });
+    if (!hasFetched.current) {
+      refreshFromCloud();
+      hasFetched.current = true;
+    }
+  }, [refreshFromCloud]);
 
-    const rItems = ref(database, "items");
-    const unsubItems = onValue(rItems, (snap) => {
-      const data = snap.val() || {};
-      const arr = Object.keys(data).map(k => ({ id: k, ...data[k] }));
-      setItems(arr);
-    });
-
-    const rMaster = ref(database, "datasparepart");
-    const unsubMaster = onValue(rMaster, (snap) => {
-      const data = snap.val() || {};
-      setSpareparts(Object.values(data));
-    });
-
-    return () => { unsubAuth(); unsubItems(); unsubMaster(); };
-  }, [navigate]);
-
-  if (loadingAuth) return <div style={styles.loading}>Checking Session...</div>;
-
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-
-  const applySparepart = (sp) => {
-    setForm({ ...form, partnumber: sp.partnumber, nama: sp.nama, harga: sp.harga || 0 });
-    setSearchText("");
-  };
-
-  const cancelEdit = () => {
-    setEditId(null);
-    setForm({ partnumber: "", nama: "", stok: "", satuan: "", harga: "", gudang: "", rack: "" });
-  };
-
-  const saveItem = async () => {
-    if (!form.partnumber || !form.nama) return alert("Part Number & Nama wajib diisi!");
-    const payload = { ...form, stok: Number(form.stok) || 0, harga: Number(form.harga) || 0 };
-    try {
-      if (editId) {
-        await update(ref(database, "items/" + editId), payload);
-        setEditId(null);
-      } else {
-        const newKey = push(ref(database, "items")).key;
-        await set(ref(database, "items/" + newKey), { id: newKey, ...payload });
+  const handleCellChange = (id, field, value) => {
+    setInventoryData(prev => prev.map(item => {
+      if (item.id === id) {
+        const updatedItem = { ...item, [field]: value };
+        // Hitung ulang total jika stok atau harga berubah
+        if (field === "stok" || field === "hargaSatuan") {
+          updatedItem.total = parseNum(updatedItem.stok) * parseNum(updatedItem.hargaSatuan);
+        }
+        return updatedItem;
       }
-      setForm({ partnumber: "", nama: "", stok: "", satuan: "", harga: "", gudang: "", rack: "" });
-      alert("Data berhasil disimpan!");
-    } catch (err) { alert("Gagal menyimpan data"); }
+      return item;
+    }));
   };
 
-  const deleteItem = (id) => {
-    if (window.confirm("Hapus data ini secara permanen?")) remove(ref(database, "items/" + id));
+  const saveChanges = () => {
+    localStorage.setItem("scm_inventory_full_data", JSON.stringify(inventoryData));
+    setIsEditing(false);
+    alert("Data Inventory berhasil disimpan!");
   };
-
-  const filteredTableItems = items.filter(item => 
-    String(item.partnumber || "").toLowerCase().includes(tableFilter.toLowerCase()) ||
-    String(item.nama || "").toLowerCase().includes(tableFilter.toLowerCase()) ||
-    String(item.gudang || "").toLowerCase().includes(tableFilter.toLowerCase())
-  );
-
-  const totalSumFiltered = filteredTableItems.reduce((acc, item) => acc + (Number(item.stok) * Number(item.harga)), 0);
 
   return (
-    <div style={styles.container}>
-      {/* HEADER UTAMA */}
-      <div style={styles.header}>
-        <h2 style={{ margin: 0, color: "#7b003f" }}>📦 Inventory Management</h2>
-        <button style={styles.btnLog} onClick={() => { signOut(auth); navigate("/login"); }}>Logout</button>
-      </div>
-
-      {/* NAVIGASI LENGKAP */}
-      <div style={styles.fullNavBar}>
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>SISTEM</span>
-          <button style={styles.btnNav} onClick={() => navigate("/dashboard")}>🏠 Dashboard</button>
-          <button style={{...styles.btnNav, background: "#7b003f", color: "#fff"}} onClick={() => navigate("/inventory")}>📦 Inventory</button>
-        </div>
-        
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>MASTER DATA</span>
-          <button style={styles.btnNav} onClick={() => navigate("/datapart")}>🛠 Datapart</button>
-          <button style={styles.btnNav} onClick={() => navigate("/supplier")}>🏢 Supplier</button>
-          <button style={styles.btnNav} onClick={() => navigate("/peminta")}>👤 Peminta</button>
-          <button style={styles.btnNav} onClick={() => navigate("/tujuan")}>📍 Tujuan</button>
-        </div>
-
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>TRANSAKSI</span>
-          <button style={styles.btnNav} onClick={() => navigate("/barang-masuk")}>📥 Masuk</button>
-          <button style={styles.btnNav} onClick={() => navigate("/barang-keluar")}>📤 Keluar</button>
-        </div>
-
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>LAPORAN</span>
-          <button style={styles.btnNav} onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
-          <button style={styles.btnNav} onClick={() => navigate("/stock-opname")}>📋 Opname</button>
+    <div className="sasaran-container">
+      <div className="sasaran-nav" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f4f4f4', alignItems: 'center' }}>
+        <button className="btn-home" onClick={() => navigate("/dashboard-inventory")}>← BACK</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {!isEditing ? (
+            <>
+              <a href={SPREADSHEET_EDIT_URL} target="_blank" rel="noopener noreferrer">
+                <button style={{ backgroundColor: '#1d6f42', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>🌐 Spreadsheet</button>
+              </a>
+              <button onClick={refreshFromCloud} disabled={isLoading} style={{ backgroundColor: "#f1c40f", border: "none", padding: "8px 15px", borderRadius: "5px", fontWeight: "bold" }}>
+                {isLoading ? "🔄..." : "☁️ Sync Cloud"}
+              </button>
+              <button onClick={() => { setBackupData(JSON.parse(JSON.stringify(inventoryData))); setIsEditing(true); }} style={{ backgroundColor: '#e67e22', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px' }}>✏️ Edit</button>
+            </>
+          ) : (
+            <>
+              <button onClick={saveChanges} style={{ backgroundColor: '#2ecc71', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px' }}>💾 Simpan</button>
+              <button onClick={() => { setInventoryData(backupData); setIsEditing(false); }} style={{ backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px' }}>✖ Batal</button>
+            </>
+          )}
         </div>
       </div>
 
-      <div style={styles.mainGrid}>
-        {/* KOLOM KIRI: FORM INPUT */}
-        <div style={{ flex: 1 }}>
-          <div style={styles.card}>
-            <h4>🔍 Ambil dari Master Sparepart</h4>
-            <input 
-              style={styles.inputFull} 
-              placeholder="Ketik Part Number Master..." 
-              value={searchText} 
-              onChange={(e) => setSearchText(e.target.value)} 
-            />
-            {searchText && (
-              <div style={styles.searchResult}>
-                {spareparts.filter(s => String(s.partnumber).toLowerCase().includes(searchText.toLowerCase())).map(sp => (
-                  <div key={sp.id} style={styles.searchItem} onClick={() => applySparepart(sp)}>
-                    <b>{sp.partnumber}</b> - {sp.nama}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      <h2 style={{ textAlign: 'center', margin: '20px 0' }}>INVENTORY LIST</h2>
 
-          <div style={styles.card}>
-            <h4>{editId ? "📝 Edit Item" : "➕ Input Inventory"}</h4>
-            <div style={styles.formVertical}>
-              <input name="partnumber" placeholder="Part Number" style={styles.input} value={form.partnumber} onChange={handleChange} />
-              <input name="nama" placeholder="Nama Barang" style={styles.input} value={form.nama} onChange={handleChange} />
-              <div style={{display: 'flex', gap: 10}}>
-                <input name="stok" type="number" placeholder="Stok" style={styles.input} value={form.stok} onChange={handleChange} />
-                <input name="satuan" placeholder="Satuan" style={styles.input} value={form.satuan} onChange={handleChange} />
-              </div>
-              <input name="harga" type="number" placeholder="Harga Satuan" style={styles.input} value={form.harga} onChange={handleChange} />
-              <div style={{display: 'flex', gap: 10}}>
-                <input name="gudang" placeholder="Gudang" style={styles.input} value={form.gudang} onChange={handleChange} />
-                <input name="rack" placeholder="Rack" style={styles.input} value={form.rack} onChange={handleChange} />
-              </div>
-              
-              <button style={styles.btnSave} onClick={saveItem}>{editId ? "Update Data" : "Simpan Ke Inventory"}</button>
-              {editId && <button style={styles.btnCancel} onClick={cancelEdit}>Batal Edit</button>}
-            </div>
-          </div>
-        </div>
-
-        {/* KOLOM KANAN: TABEL DATA */}
-        <div style={{ flex: 2.5 }}>
-          <div style={styles.summaryRow}>
-            <div style={styles.summaryCard}>
-              <small>Total Nilai Inventory</small>
-              <div style={{ fontSize: "1.4rem", fontWeight: "bold", color: "#7b003f" }}>{formatIDR(totalSumFiltered)}</div>
-            </div>
-            <div style={{ flex: 1 }}>
-              <input 
-                style={styles.inputFull} 
-                placeholder="🔎 Filter tabel (Nama / Part / Gudang)..." 
-                value={tableFilter}
-                onChange={(e) => setTableFilter(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div style={styles.card}>
-            <div style={{ overflowX: "auto" }}>
-              <table style={styles.table}>
-                <thead>
-                  <tr style={{ background: "#f2f2f2" }}>
-                    <th style={styles.th}>Part Number</th>
-                    <th style={styles.th}>Nama</th>
-                    <th style={styles.th}>Stok</th>
-                    <th style={styles.th}>Total Nilai</th>
-                    <th style={styles.th}>Lokasi</th>
-                    <th style={styles.th}>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTableItems.map((i) => (
-                    <tr key={i.id} style={styles.tr}>
-                      <td style={styles.td}>{i.partnumber}</td>
-                      <td style={styles.td}>{i.nama}</td>
-                      <td style={styles.td}><b>{i.stok}</b> {i.satuan}</td>
-                      <td style={styles.td}>{formatIDR(i.stok * i.harga)}</td>
-                      <td style={styles.td}><small>{i.gudang} / {i.rack}</small></td>
-                      <td style={styles.td}>
-                        <button style={styles.btnEdit} onClick={() => { setEditId(i.id); setForm(i); window.scrollTo(0,0); }}>Edit</button>
-                        <button style={styles.btnDel} onClick={() => deleteItem(i.id)}>Del</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+      <div className="table-responsive" style={{ padding: '0 10px', overflowX: 'auto' }}>
+        <table className="kpi-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '11px' }}>
+          <thead style={{ backgroundColor: '#2c3e50', color: 'white' }}>
+            <tr>
+              <th style={{ border: '1px solid #444', padding: '8px' }}>Id Barang</th>
+              <th style={{ border: '1px solid #444', padding: '8px' }}>Nama Barang</th>
+              <th style={{ border: '1px solid #444', padding: '8px' }}>Stok</th>
+              <th style={{ border: '1px solid #444', padding: '8px' }}>Satuan</th>
+              <th style={{ border: '1px solid #444', padding: '8px' }}>Gudang</th>
+              <th style={{ border: '1px solid #444', padding: '8px' }}>Harga Satuan</th>
+              <th style={{ border: '1px solid #444', padding: '8px' }}>Total</th>
+              <th style={{ border: '1px solid #444', padding: '8px' }}>Rack Info</th>
+              <th style={{ border: '1px solid #444', padding: '8px' }}>Sisa Barang</th>
+              <th style={{ border: '1px solid #444', padding: '8px' }}>Lead Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {inventoryData.map((item) => (
+              <tr key={item.id} style={{ backgroundColor: '#fff' }}>
+                <td style={{ border: '1px solid #ddd', padding: '5px', textAlign: 'center' }}>{item.id}</td>
+                <td style={{ border: '1px solid #ddd', padding: '5px' }}>
+                  {isEditing ? <input style={{width:'100%'}} value={item.namaBarang} onChange={e => handleCellChange(item.id, "namaBarang", e.target.value)} /> : item.namaBarang}
+                </td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>
+                  {isEditing ? <input type="number" style={{width:'50px'}} value={item.stok} onChange={e => handleCellChange(item.id, "stok", e.target.value)} /> : item.stok}
+                </td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.satuan}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.gudang}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'right', paddingRight: '5px' }}>
+                  {isEditing ? <input type="number" style={{width:'80px'}} value={item.hargaSatuan} onChange={e => handleCellChange(item.id, "hargaSatuan", e.target.value)} /> : `Rp ${item.hargaSatuan.toLocaleString('id-ID')}`}
+                </td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'right', paddingRight: '5px', fontWeight: 'bold' }}>
+                  Rp {item.total.toLocaleString('id-ID')}
+                </td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.rackInfo}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.sisaBarang}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.leadTime}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: { padding: "20px", fontFamily: "sans-serif", backgroundColor: "#f4f7f6", minHeight: "100vh" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
-  fullNavBar: { display: "flex", gap: "20px", marginBottom: "20px", background: "#fff", padding: "15px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", flexWrap: "wrap" },
-  navGroup: { display: "flex", flexDirection: "column", gap: "5px", borderLeft: "3px solid #7b003f", paddingLeft: "12px" },
-  navLabel: { fontSize: "10px", fontWeight: "bold", color: "#7b003f", marginBottom: "2px" },
-  btnNav: { padding: "7px 12px", cursor: "pointer", background: "#f8f9fa", border: "1px solid #ddd", borderRadius: "4px", fontSize: "12px", textAlign: "left" },
-  mainGrid: { display: "flex", gap: "20px", flexWrap: "wrap" },
-  card: { background: "#fff", padding: "15px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", marginBottom: 15 },
-  formVertical: { display: "flex", flexDirection: "column", gap: "10px" },
-  input: { padding: "10px", borderRadius: "6px", border: "1px solid #ddd", width: "100%", boxSizing: "border-box" },
-  inputFull: { width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd", boxSizing: "border-box" },
-  summaryRow: { display: "flex", gap: "15px", alignItems: "center", marginBottom: "15px" },
-  summaryCard: { background: "#fff", padding: "10px 20px", borderRadius: "10px", borderLeft: "5px solid #7b003f", minWidth: "200px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)" },
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: { padding: "10px", textAlign: "left", borderBottom: "2px solid #eee", fontSize: "12px", color: "#666" },
-  td: { padding: "10px", borderBottom: "1px solid #f9f9f9", fontSize: "13px" },
-  btnSave: { background: "#7b003f", color: "#fff", border: "none", padding: "12px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold", marginTop: 5 },
-  btnCancel: { background: "#6c757d", color: "#fff", border: "none", padding: "8px", borderRadius: "6px", cursor: "pointer" },
-  btnEdit: { background: "#ffc107", border: "none", padding: "4px 8px", borderRadius: "4px", marginRight: 4 },
-  btnDel: { background: "#dc3545", color: "#fff", border: "none", padding: "4px 8px", borderRadius: "4px" },
-  btnLog: { background: "#333", color: "#fff", border: "none", padding: "8px 15px", borderRadius: "6px" },
-  searchResult: { border: "1px solid #ddd", background: "#fff", position: "absolute", width: "250px", zIndex: 10, maxHeight: 150, overflowY: "auto", boxShadow: "0 4px 8px rgba(0,0,0,0.1)" },
-  searchItem: { padding: "8px", cursor: "pointer", borderBottom: "1px solid #eee", fontSize: "12px" },
-  loading: { textAlign: "center", padding: 50 }
-};

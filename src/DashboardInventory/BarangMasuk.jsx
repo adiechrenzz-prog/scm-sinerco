@@ -1,294 +1,178 @@
-import { useState, useEffect, useRef } from "react";
-import { database, auth } from "../firebase";
-import { ref, onValue, push, set, remove, update } from "firebase/database";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
+import "./DashboardInventory.css";
 
 export default function BarangMasuk() {
   const navigate = useNavigate();
-  const today = new Date().toISOString().substring(0, 10);
-  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const hasFetched = useRef(false);
 
-  const [data, setData] = useState([]);
-  const [masterPart, setMasterPart] = useState([]);
-  const [masterSupplier, setMasterSupplier] = useState([]);
+  // Link Spreadsheet Barang Masuk (GID 1515647352)
+  const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRB7U6oyLsL5DcXW5cja8gY60PcTBX0v-KxnR1rRaXM6cJCRAO8JZQ-H9FjTiCRG49m5IHR2dcX8fuB/pub?gid=1515647352&single=true&output=csv";
+  const SPREADSHEET_EDIT_URL = "https://docs.google.com/spreadsheets/d/1RB7U6oyLsL5DcXW5cja8gY60PcTBX0v-KxnR1rRaXM6cJCRAO8JZQ-H9FjTiCRG49m5IHR2dcX8fuB/edit#gid=1515647352";
 
-  const [searchPart, setSearchPart] = useState("");
-  const [searchSupplier, setSearchSupplier] = useState("");
-  const [tableFilter, setTableFilter] = useState("");
-  const [editId, setEditId] = useState(null);
-
-  const [form, setForm] = useState({
-    partnumber: "",
-    nama: "",
-    jumlah: "",
-    harga: "",
-    total: 0,
-    supplier: "",
-    invoice: "",
-    waktu: today,
-    ket: "",
+  const [masukData, setMasukData] = useState(() => {
+    const savedData = localStorage.getItem("scm_barang_masuk_data");
+    return savedData ? JSON.parse(savedData) : [];
   });
 
-  const formatIDR = (val) => {
-    const num = Number(val) || 0;
-    return new Intl.NumberFormat("id-ID", { 
-        style: "currency", 
-        currency: "IDR", 
-        minimumFractionDigits: 0 
-    }).format(num);
+  const [backupData, setBackupData] = useState([]);
+
+  const parseNum = (val) => {
+    if (!val) return 0;
+    const n = parseFloat(String(val).replace(/[^0-9.-]+/g, ""));
+    return isNaN(n) ? 0 : n;
   };
+
+  const mapDataToState = useCallback((rawData) => {
+    return rawData.map((row, index) => {
+      const getVal = (keywords) => {
+        const key = Object.keys(row).find(k => 
+          keywords.some(word => k.toLowerCase().trim() === word.toLowerCase())
+        );
+        return key ? String(row[key]).trim() : "";
+      };
+
+      const stok = parseNum(getVal(["stok", "qty"]));
+      const harga = parseNum(getVal(["harga per unit", "harga"]));
+
+      return {
+        id: getVal(["id barang", "id"]) || `IN-${index + 1}`,
+        namaBarang: getVal(["nama barang"]),
+        satuan: getVal(["satuan"]),
+        stok: stok,
+        gudang: getVal(["gudang"]),
+        tanggal: getVal(["tanggal"]),
+        noInvoice: getVal(["nomor invoice"]),
+        noTransaksi: getVal(["nomor transaksi"]),
+        foto: getVal(["foto barang", "foto"]),
+        hargaUnit: harga,
+        total: stok * harga
+      };
+    }).filter(item => item.namaBarang || item.noTransaksi);
+  }, []);
+
+  const refreshFromCloud = useCallback(async () => {
+    if (isLoading) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${SPREADSHEET_CSV_URL}&t=${new Date().getTime()}`);
+      const csvText = await response.text();
+      const workbook = XLSX.read(csvText, { type: 'string' });
+      const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
+      
+      const finalData = mapDataToState(rawData);
+      if (finalData.length > 0) {
+        setMasukData(finalData);
+        localStorage.setItem("scm_barang_masuk_data", JSON.stringify(finalData));
+      }
+    } catch (error) {
+      console.error("Gagal sinkron barang masuk:", error);
+    } finally {
+      setTimeout(() => setIsLoading(false), 500);
+    }
+  }, [mapDataToState, isLoading]);
 
   useEffect(() => {
-    const unsubAuth = onAuthStateChanged(auth, (u) => {
-      if (!u) navigate("/login");
-      setLoadingAuth(false);
-    });
-
-    const unsubBM = onValue(ref(database, "barangmasuk"), (snap) => {
-      const d = snap.val() || {};
-      const arr = Object.keys(d).map(key => ({
-        ...d[key],
-        id: key,
-        jumlah: Number(d[key].jumlah) || 0,
-        harga: Number(d[key].harga) || 0,
-        total: Number(d[key].total) || (Number(d[key].jumlah) * Number(d[key].harga)) || 0
-      })).sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
-      setData(arr);
-    });
-
-    const unsubPart = onValue(ref(database, "datasparepart"), (snap) => {
-      const d = snap.val() || {};
-      setMasterPart(Object.values(d));
-    });
-
-    const unsubSup = onValue(ref(database, "supplier"), (snap) => {
-      const d = snap.val() || {};
-      setMasterSupplier(Object.values(d));
-    });
-
-    return () => { unsubAuth(); unsubBM(); unsubPart(); unsubSup(); };
-  }, [navigate]);
-
-  if (loadingAuth) return <div style={styles.loading}>Checking Session...</div>;
-
-  const handleForm = (e) => {
-    const { name, value } = e.target;
-    let newForm = { ...form, [name]: value };
-
-    if (name === "jumlah" || name === "harga") {
-      const qty = Number(name === "jumlah" ? value : form.jumlah) || 0;
-      const hrg = Number(name === "harga" ? value : form.harga) || 0;
-      newForm.total = qty * hrg;
+    if (!hasFetched.current) {
+      refreshFromCloud();
+      hasFetched.current = true;
     }
-    setForm(newForm);
-  };
+  }, [refreshFromCloud]);
 
-  const applyPart = (p) => {
-    const qty = Number(form.jumlah) || 0;
-    const hrg = Number(p.harga) || 0;
-    setForm({ ...form, partnumber: p.partnumber, nama: p.nama, harga: hrg, total: qty * hrg });
-    setSearchPart("");
-  };
-
-  const applySupplier = (s) => {
-    setForm({ ...form, supplier: s.nama });
-    setSearchSupplier("");
-  };
-
-  const cancelEdit = () => {
-    setEditId(null);
-    setForm({ partnumber: "", nama: "", jumlah: "", harga: "", total: 0, supplier: "", invoice: "", waktu: today, ket: "" });
-  };
-
-  const saveData = async () => {
-    if (!form.partnumber || Number(form.jumlah) <= 0) return alert("Pilih barang dan isi jumlah!");
-
-    const payload = {
-      ...form,
-      jumlah: Number(form.jumlah),
-      harga: Number(form.harga),
-      total: Number(form.jumlah) * Number(form.harga)
-    };
-
-    try {
-      if (editId) {
-        await update(ref(database, "barangmasuk/" + editId), payload);
-      } else {
-        const id = push(ref(database, "barangmasuk")).key;
-        await set(ref(database, "barangmasuk/" + id), { ...payload, id });
+  const handleCellChange = (id, field, value) => {
+    setMasukData(prev => prev.map(item => {
+      if (item.id === id) {
+        const updatedItem = { ...item, [field]: value };
+        if (field === "stok" || field === "hargaUnit") {
+          updatedItem.total = parseNum(updatedItem.stok) * parseNum(updatedItem.hargaUnit);
+        }
+        return updatedItem;
       }
-      alert("Data berhasil diproses!");
-      cancelEdit();
-    } catch (err) { alert("Error simpan data"); }
+      return item;
+    }));
   };
 
-  const filteredTable = data.filter(i => 
-    String(i.invoice + i.nama + i.partnumber + i.supplier + i.waktu).toLowerCase().includes(tableFilter.toLowerCase())
-  );
-
-  const grandTotal = filteredTable.reduce((sum, item) => sum + (Number(item.total) || 0), 0);
+  const saveChanges = () => {
+    localStorage.setItem("scm_barang_masuk_data", JSON.stringify(masukData));
+    setIsEditing(false);
+    alert("Data Barang Masuk Berhasil Disimpan!");
+  };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={{ margin: 0, color: "#7b003f" }}>📥 Transaksi Barang Masuk</h2>
-        <button style={styles.btnLog} onClick={() => { signOut(auth); navigate("/login"); }}>Logout</button>
-      </div>
-
-      {/* NAVIGASI LENGKAP (Sinkron dengan modul lain) */}
-      <div style={styles.fullNavBar}>
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>SISTEM</span>
-          <button style={styles.btnNav} onClick={() => navigate("/dashboard")}>🏠 Dashboard</button>
-          <button style={styles.btnNav} onClick={() => navigate("/inventory")}>📦 Inventory</button>
-        </div>
-        
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>MASTER DATA</span>
-          <button style={styles.btnNav} onClick={() => navigate("/datapart")}>🛠 Datapart</button>
-          <button style={styles.btnNav} onClick={() => navigate("/supplier")}>🏢 Supplier</button>
-          <button style={styles.btnNav} onClick={() => navigate("/peminta")}>👤 Peminta</button>
-          <button style={styles.btnNav} onClick={() => navigate("/tujuan")}>📍 Tujuan</button>
-        </div>
-
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>TRANSAKSI</span>
-          <button style={{...styles.btnNav, background: "#7b003f", color: "#fff"}} onClick={() => navigate("/barang-masuk")}>📥 Masuk</button>
-          <button style={styles.btnNav} onClick={() => navigate("/barang-keluar")}>📤 Keluar</button>
-        </div>
-
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>LAPORAN</span>
-          <button style={styles.btnNav} onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
-          <button style={styles.btnNav} onClick={() => navigate("/stock-opname")}>📋 Opname</button>
+    <div className="sasaran-container">
+      <div className="sasaran-nav" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f4f4f4', alignItems: 'center' }}>
+        <button className="btn-home" onClick={() => navigate("/dashboard-inventory")}>← BACK</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {!isEditing ? (
+            <>
+              <a href={SPREADSHEET_EDIT_URL} target="_blank" rel="noopener noreferrer">
+                <button style={{ backgroundColor: '#1d6f42', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>🌐 Spreadsheet</button>
+              </a>
+              <button onClick={refreshFromCloud} disabled={isLoading} style={{ backgroundColor: "#f1c40f", border: "none", padding: "8px 15px", borderRadius: "5px", fontWeight: "bold" }}>
+                {isLoading ? "🔄..." : "☁️ Sync Cloud"}
+              </button>
+              <button onClick={() => { setBackupData(JSON.parse(JSON.stringify(masukData))); setIsEditing(true); }} style={{ backgroundColor: '#e67e22', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px' }}>✏️ Edit</button>
+            </>
+          ) : (
+            <>
+              <button onClick={saveChanges} style={{ backgroundColor: '#2ecc71', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px' }}>💾 Simpan</button>
+              <button onClick={() => { setMasukData(backupData); setIsEditing(false); }} style={{ backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px' }}>✖ Batal</button>
+            </>
+          )}
         </div>
       </div>
 
-      <div style={styles.summaryCard}>
-          <div>
-              <span style={styles.summaryLabel}>Total Nilai Transaksi Terfilter</span>
-              <h1 style={styles.summaryValue}>{formatIDR(grandTotal)}</h1>
-          </div>
-          <div style={{ textAlign: "right" }}>
-              <span style={styles.summaryLabel}>Jumlah Transaksi</span>
-              <h2 style={styles.summaryValue}>{filteredTable.length} Data</h2>
-          </div>
-      </div>
+      <h2 style={{ textAlign: 'center', margin: '20px 0' }}>LOG BARANG MASUK</h2>
 
-      <div style={styles.mainGrid}>
-        <div style={{ flex: 1, minWidth: "350px" }}>
-          <div style={styles.card}>
-            <h4>🔍 1. Cari Item & Supplier</h4>
-            <input style={styles.inputFull} placeholder="Cari Part Number / Nama..." value={searchPart} onChange={(e) => setSearchPart(e.target.value)} />
-            {searchPart && (
-                <div style={styles.searchResult}>
-                    {masterPart.filter(p => String(p.partnumber + p.nama).toLowerCase().includes(searchPart.toLowerCase())).map(p => (
-                        <div key={p.id} style={styles.searchItem} onClick={() => applyPart(p)}><b>{p.partnumber}</b> — {p.nama}</div>
-                    ))}
-                </div>
-            )}
-            <input style={{...styles.inputFull, marginTop: 10}} placeholder="Cari Supplier..." value={searchSupplier} onChange={(e) => setSearchSupplier(e.target.value)} />
-            {searchSupplier && (
-                <div style={styles.searchResult}>
-                    {masterSupplier.filter(s => s.nama.toLowerCase().includes(searchSupplier.toLowerCase())).map(s => (
-                        <div key={s.id} style={styles.searchItem} onClick={() => applySupplier(s)}>{s.nama}</div>
-                    ))}
-                </div>
-            )}
-          </div>
-
-          <div style={styles.card}>
-            <h4>📝 2. Detail Transaksi</h4>
-            <div style={styles.formGrid}>
-              <div style={styles.inputGroup}><label style={styles.label}>Part Number</label><input style={styles.inputDisabled} value={form.partnumber} readOnly /></div>
-              <div style={styles.inputGroup}><label style={styles.label}>No. Invoice</label><input name="invoice" style={styles.input} value={form.invoice} onChange={handleForm} /></div>
-              <div style={styles.inputGroup}><label style={styles.label}>Jumlah</label><input name="jumlah" type="number" style={styles.input} value={form.jumlah} onChange={handleForm} /></div>
-              <div style={styles.inputGroup}><label style={styles.label}>Harga Beli Satuan</label><input name="harga" type="number" style={styles.input} value={form.harga} onChange={handleForm} /></div>
-              <div style={styles.inputGroup}><label style={styles.label}>Total Harga</label><div style={styles.totalBox}>{formatIDR(form.total)}</div></div>
-              <div style={styles.inputGroup}><label style={styles.label}>Tanggal Masuk</label><input name="waktu" type="date" style={styles.input} value={form.waktu} onChange={handleForm} /></div>
-            </div>
-            <div style={{ display: "flex", gap: "10px", marginTop: "15px" }}>
-                <button style={{...styles.btnSave, flex: 2}} onClick={saveData}>{editId ? "UPDATE DATA" : "SIMPAN MASUK"}</button>
-                {editId && <button style={{...styles.btnCancel, flex: 1}} onClick={cancelEdit}>BATAL</button>}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ flex: 2.5, minWidth: "500px" }}>
-            <div style={styles.card}>
-                <div style={styles.tableHeader}>
-                    <h4>📜 Riwayat Barang Masuk</h4>
-                    <input style={{...styles.input, width: "250px"}} placeholder="Cari di tabel..." value={tableFilter} onChange={(e) => setTableFilter(e.target.value)} />
-                </div>
-                <div style={{ overflowX: "auto" }}>
-                    <table style={styles.table}>
-                        <thead>
-                            <tr style={{ background: "#f2f2f2" }}>
-                                <th style={styles.th}>Tanggal</th>
-                                <th style={styles.th}>Invoice</th>
-                                <th style={styles.th}>Item / Part</th>
-                                <th style={styles.th}>Supplier</th>
-                                <th style={styles.th}>Qty</th>
-                                <th style={styles.th}>Total</th>
-                                <th style={styles.th}>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {filteredTable.map((i) => (
-                                <tr key={i.id} style={styles.tr}>
-                                    <td style={styles.td}>{i.waktu}</td>
-                                    <td style={styles.td}><b>{i.invoice || "-"}</b></td>
-                                    <td style={styles.td}><small>{i.partnumber}</small><br/>{i.nama}</td>
-                                    <td style={styles.td}>{i.supplier}</td>
-                                    <td style={styles.td}>{i.jumlah}</td>
-                                    <td style={{...styles.td, fontWeight: "bold", color: "#7b003f"}}>{formatIDR(i.total)}</td>
-                                    <td style={styles.td}>
-                                        <button style={styles.btnEditSmall} onClick={() => {setEditId(i.id); setForm(i); window.scrollTo(0,0);}}>Edit</button>
-                                        <button style={styles.btnDelSmall} onClick={() => {if(window.confirm("Hapus transaksi ini?")) remove(ref(database, "barangmasuk/"+i.id))}}>Del</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+      <div className="table-responsive" style={{ padding: '0 10px', overflowX: 'auto' }}>
+        <table className="kpi-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10px' }}>
+          <thead style={{ backgroundColor: '#2c3e50', color: 'white' }}>
+            <tr>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>ID Barang</th>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>Nama Barang</th>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>Satuan</th>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>Stok</th>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>Gudang</th>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>Tanggal</th>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>No Invoice</th>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>No Transaksi</th>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>Foto</th>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>Harga/Unit</th>
+              <th style={{ border: '1px solid #444', padding: '5px' }}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {masukData.map((item) => (
+              <tr key={item.id} style={{ backgroundColor: '#fff' }}>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.id}</td>
+                <td style={{ border: '1px solid #ddd', padding: '4px' }}>
+                  {isEditing ? <input style={{width:'100%'}} value={item.namaBarang} onChange={e => handleCellChange(item.id, "namaBarang", e.target.value)} /> : item.namaBarang}
+                </td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.satuan}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>
+                  {isEditing ? <input type="number" style={{width:'40px'}} value={item.stok} onChange={e => handleCellChange(item.id, "stok", e.target.value)} /> : item.stok}
+                </td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.gudang}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.tanggal}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.noInvoice}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.noTransaksi}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>
+                  {item.foto ? <a href={item.foto} target="_blank" rel="noreferrer">👁️ Lihat</a> : "-"}
+                </td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'right', paddingRight: '4px' }}>
+                  {isEditing ? <input type="number" style={{width:'60px'}} value={item.hargaUnit} onChange={e => handleCellChange(item.id, "hargaUnit", e.target.value)} /> : item.hargaUnit.toLocaleString('id-ID')}
+                </td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'right', paddingRight: '4px', fontWeight: 'bold' }}>
+                  {item.total.toLocaleString('id-ID')}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: { padding: "20px", backgroundColor: "#f4f7f6", minHeight: "100vh", fontFamily: "sans-serif" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
-  fullNavBar: { display: "flex", gap: "20px", marginBottom: "20px", background: "#fff", padding: "15px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", flexWrap: "wrap" },
-  navGroup: { display: "flex", flexDirection: "column", gap: "5px", borderLeft: "3px solid #7b003f", paddingLeft: "12px" },
-  navLabel: { fontSize: "10px", fontWeight: "bold", color: "#7b003f", marginBottom: "2px" },
-  btnNav: { padding: "7px 12px", cursor: "pointer", background: "#f8f9fa", border: "1px solid #ddd", borderRadius: "4px", fontSize: "12px", textAlign: "left" },
-  summaryCard: { background: "#7b003f", color: "white", padding: "20px", borderRadius: "10px", display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" },
-  summaryLabel: { fontSize: "12px", opacity: 0.8 },
-  summaryValue: { margin: "5px 0 0 0", fontSize: "1.5rem" },
-  mainGrid: { display: "flex", gap: "20px", flexWrap: "wrap" },
-  card: { background: "#fff", padding: "20px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", marginBottom: 20, position: "relative" },
-  formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
-  inputGroup: { display: "flex", flexDirection: "column", gap: "4px" },
-  label: { fontSize: "11px", fontWeight: "bold", color: "#666" },
-  input: { padding: "10px", borderRadius: "6px", border: "1px solid #ddd", fontSize: "14px" },
-  inputDisabled: { padding: "10px", borderRadius: "6px", border: "1px solid #eee", backgroundColor: "#f9f9f9", color: "#666" },
-  inputFull: { width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #ddd", boxSizing: "border-box" },
-  totalBox: { padding: "10px", background: "#fff9fa", border: "1px solid #ffebeb", borderRadius: "6px", fontWeight: "bold", color: "#7b003f" },
-  table: { width: "100%", borderCollapse: "collapse" },
-  tableHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" },
-  th: { padding: "12px", textAlign: "left", borderBottom: "2px solid #eee", fontSize: "12px", color: "#666" },
-  td: { padding: "12px", borderBottom: "1px solid #f9f9f9", fontSize: "13px" },
-  tr: { transition: "0.2s" },
-  btnSave: { background: "#7b003f", color: "#fff", border: "none", padding: "12px", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" },
-  btnCancel: { background: "#6c757d", color: "#fff", border: "none", padding: "12px", borderRadius: "6px", cursor: "pointer" },
-  btnEditSmall: { background: "#ffc107", border: "none", padding: "4px 8px", borderRadius: "4px", marginRight: 4, cursor: "pointer" },
-  btnDelSmall: { background: "#dc3545", color: "#fff", border: "none", padding: "4px 8px", borderRadius: "4px", cursor: "pointer" },
-  btnLog: { background: "#333", color: "#fff", border: "none", padding: "8px 15px", borderRadius: "6px", cursor: "pointer" },
-  searchResult: { position: "absolute", background: "#fff", border: "1px solid #ddd", zIndex: 100, width: "100%", maxHeight: "150px", overflowY: "auto", borderRadius: "6px", boxShadow: "0 4px 10px rgba(0,0,0,0.1)" },
-  searchItem: { padding: "10px", cursor: "pointer", borderBottom: "1px solid #eee", fontSize: "13px" },
-  loading: { textAlign: "center", padding: 50 }
-};

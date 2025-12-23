@@ -1,234 +1,174 @@
-import { useEffect, useState, useRef } from "react";
-import { database, auth } from "../firebase";
-import { ref, onValue, push, set, update, remove } from "firebase/database";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx";
+import "./DashboardInventory.css";
 
 export default function Supplier() {
   const navigate = useNavigate();
-  const fileInputRef = useRef(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const hasFetched = useRef(false);
 
-  const [loadingAuth, setLoadingAuth] = useState(true);
-  const [suppliers, setSuppliers] = useState([]);
+  // Link Spreadsheet Supplier (GID 438117494)
+  const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRB7U6oyLsL5DcXW5cja8gY60PcTBX0v-KxnR1rRaXM6cJCRAO8JZQ-H9FjTiCRG49m5IHR2dcX8fuB/pub?gid=438117494&single=true&output=csv";
+  
+  // Link Edit Spreadsheet
+  const SPREADSHEET_EDIT_URL = "https://docs.google.com/spreadsheets/d/1RB7U6oyLsL5DcXW5cja8gY60PcTBX0v-KxnR1rRaXM6cJCRAO8JZQ-H9FjTiCRG49m5IHR2dcX8fuB/edit#gid=438117494";
 
-  const [form, setForm] = useState({
-    nama: "",
-    alamat: "",
-    telp: "",
+  const [supplierData, setSupplierData] = useState(() => {
+    const savedData = localStorage.getItem("scm_supplier_data");
+    return savedData ? JSON.parse(savedData) : [];
   });
 
-  const [editId, setEditId] = useState(null);
+  const [backupData, setBackupData] = useState([]);
 
-  // AUTH SESSION
-  useEffect(() => {
-    return onAuthStateChanged(auth, (u) => {
-      if (!u) navigate("/login");
-      setLoadingAuth(false);
-    });
-  }, [navigate]);
+  // Pemetaan kolom: Kode Supplier, Nama Supplier, Alamat, Telp
+  const mapDataToState = useCallback((rawData) => {
+    return rawData.map((row, index) => {
+      const getVal = (keywords) => {
+        const key = Object.keys(row).find(k => 
+          keywords.some(word => k.toLowerCase().trim() === word.toLowerCase())
+        );
+        if (!key) return "";
+        const val = row[key];
+        return val !== undefined && val !== null ? String(val).trim() : "";
+      };
 
-  // LOAD DATABASE SUPPLIER
-  useEffect(() => {
-    const r = ref(database, "supplier");
-    return onValue(r, (snap) => {
-      const d = snap.val() || {};
-      const arr = Object.keys(d).map((key) => ({ id: key, ...d[key] }));
-      setSuppliers(arr);
-    });
+      return {
+        id: "sup-" + index,
+        kode: getVal(["kode supplier", "kode"]),
+        nama: getVal(["nama supplier", "nama"]),
+        alamat: getVal(["alamat"]),
+        telp: getVal(["telp", "telepon", "phone"])
+      };
+    }).filter(item => item.kode || item.nama);
   }, []);
 
-  if (loadingAuth) return <div style={styles.loading}>Checking Session...</div>;
-
-  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-
-  const saveData = async () => {
-    if (!form.nama) return alert("Nama supplier wajib diisi!");
-
+  const refreshFromCloud = useCallback(async () => {
+    if (isLoading) return;
+    setIsLoading(true);
     try {
-      if (editId) {
-        await update(ref(database, "supplier/" + editId), form);
-        setEditId(null);
-      } else {
-        const id = push(ref(database, "supplier")).key;
-        await set(ref(database, "supplier/" + id), { id, ...form });
+      const response = await fetch(`${SPREADSHEET_CSV_URL}&t=${new Date().getTime()}`);
+      const csvText = await response.text();
+      const workbook = XLSX.read(csvText, { type: 'string' });
+      const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { 
+        defval: "" 
+      });
+      
+      const finalData = mapDataToState(rawData);
+      if (finalData.length > 0) {
+        setSupplierData(finalData);
+        localStorage.setItem("scm_supplier_data", JSON.stringify(finalData));
       }
-      setForm({ nama: "", alamat: "", telp: "" });
-      alert("Data berhasil disimpan!");
-    } catch (err) {
-      alert("Gagal menyimpan data");
+    } catch (error) {
+      console.error("Gagal sinkron data supplier:", error);
+    } finally {
+      setTimeout(() => setIsLoading(false), 500);
     }
-  };
+  }, [mapDataToState, isLoading]);
 
-  const editRow = (s) => {
-    setEditId(s.id);
-    setForm({ nama: s.nama, alamat: s.alamat, telp: s.telp });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  useEffect(() => {
+    if (!hasFetched.current) {
+      refreshFromCloud();
+      hasFetched.current = true;
+    }
+  }, [refreshFromCloud]);
+
+  const handleCellChange = (id, field, value) => {
+    setSupplierData(prev => prev.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
   };
 
   const deleteRow = (id) => {
-    if (window.confirm("Hapus supplier ini secara permanen?"))
-      remove(ref(database, "supplier/" + id));
+    if (window.confirm("Hapus data supplier ini?")) {
+      setSupplierData(supplierData.filter(item => item.id !== id));
+    }
   };
 
-  const exportExcel = () => {
-    const data = suppliers.map((s) => ({
-      Nama: s.nama,
-      Alamat: s.alamat,
-      Telepon: s.telp,
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Supplier");
-    XLSX.writeFile(wb, "master_supplier.xlsx");
+  const startEditing = () => {
+    setBackupData(JSON.parse(JSON.stringify(supplierData)));
+    setIsEditing(true);
   };
 
-  const importExcel = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+  const saveChanges = () => {
+    localStorage.setItem("scm_supplier_data", JSON.stringify(supplierData));
+    setIsEditing(false);
+    alert("Data Supplier berhasil disimpan lokal!");
+  };
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-      const data = new Uint8Array(evt.target.result);
-      const wb = XLSX.read(data, { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
-
-      rows.forEach((r) => {
-        if (!r["Nama"]) return;
-        const id = push(ref(database, "supplier")).key;
-        set(ref(database, "supplier/" + id), {
-          id,
-          nama: r["Nama"],
-          alamat: r["Alamat"] || "",
-          telp: r["Telepon"] || "",
-        });
-      });
-
-      alert("Import berhasil!");
-      e.target.value = "";
-    };
-    reader.readAsArrayBuffer(file);
+  const cancelChanges = () => {
+    if (window.confirm("Batalkan semua perubahan?")) {
+      setSupplierData(backupData);
+      setIsEditing(false);
+    }
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={{ margin: 0, color: "#7b003f" }}>🏭 Master Supplier</h2>
-        <button style={styles.btnLog} onClick={() => { signOut(auth); navigate("/login"); }}>Logout</button>
-      </div>
-
-      {/* NAVIGASI LENGKAP (Sinkron dengan Inventory & DataPart) */}
-      <div style={styles.fullNavBar}>
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>SISTEM</span>
-          <button style={styles.btnNav} onClick={() => navigate("/dashboard")}>🏠 Dashboard</button>
-          <button style={styles.btnNav} onClick={() => navigate("/inventory")}>📦 Inventory</button>
-        </div>
+    <div className="sasaran-container">
+      <div className="sasaran-nav" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f4f4f4', alignItems: 'center' }}>
+        <button className="btn-home" onClick={() => navigate("/dashboard-inventory")}>← BACK</button>
         
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>MASTER DATA</span>
-          <button style={styles.btnNav} onClick={() => navigate("/datapart")}>🛠 Datapart</button>
-          <button style={{...styles.btnNav, background: "#7b003f", color: "#fff"}} onClick={() => navigate("/supplier")}>🏢 Supplier</button>
-          <button style={styles.btnNav} onClick={() => navigate("/peminta")}>👤 Peminta</button>
-          <button style={styles.btnNav} onClick={() => navigate("/tujuan")}>📍 Tujuan</button>
-        </div>
-
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>TRANSAKSI</span>
-          <button style={styles.btnNav} onClick={() => navigate("/barang-masuk")}>📥 Masuk</button>
-          <button style={styles.btnNav} onClick={() => navigate("/barang-keluar")}>📤 Keluar</button>
-        </div>
-
-        <div style={styles.navGroup}>
-          <span style={styles.navLabel}>LAPORAN</span>
-          <button style={styles.btnNav} onClick={() => navigate("/sisa-stok")}>📊 Sisa Stok</button>
-          <button style={styles.btnNav} onClick={() => navigate("/stock-opname")}>📋 Opname</button>
-        </div>
-      </div>
-
-      {/* FORM INPUT SECTION */}
-      <div style={styles.card}>
-        <h3>{editId ? "📝 Edit Supplier" : "✨ Tambah Supplier Baru"}</h3>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div style={{ flex: 1, minWidth: "200px" }}>
-            <label style={styles.label}>Nama Supplier</label>
-            <input name="nama" placeholder="Contoh: PT. ABC" value={form.nama} onChange={onChange} style={styles.input} />
-          </div>
-          <div style={{ flex: 2, minWidth: "200px" }}>
-            <label style={styles.label}>Alamat</label>
-            <input name="alamat" placeholder="Alamat Lengkap" value={form.alamat} onChange={onChange} style={styles.input} />
-          </div>
-          <div style={{ flex: 1, minWidth: "150px" }}>
-            <label style={styles.label}>No. Telepon</label>
-            <input name="telp" placeholder="0812..." value={form.telp} onChange={onChange} style={styles.input} />
-          </div>
-          <button onClick={saveData} style={styles.btnSave}>{editId ? "Update" : "Simpan"}</button>
-          {editId && <button onClick={() => { setEditId(null); setForm({ nama: "", alamat: "", telp: "" }); }} style={styles.btnCancel}>Batal</button>}
+        <div className="action-buttons" style={{ display: 'flex', gap: '8px' }}>
+          {!isEditing ? (
+            <>
+              <a href={SPREADSHEET_EDIT_URL} target="_blank" rel="noopener noreferrer">
+                <button style={{ backgroundColor: '#1d6f42', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  🌐 Edit Spreadsheet
+                </button>
+              </a>
+              <button onClick={refreshFromCloud} disabled={isLoading} style={{ backgroundColor: "#f1c40f", border: "none", padding: "8px 15px", borderRadius: "5px", color: "#333", fontWeight: "bold" }}>
+                {isLoading ? "🔄 Sinkron..." : "☁️ Sync Cloud"}
+              </button>
+              <button onClick={startEditing} style={{ backgroundColor: '#e67e22', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px' }}>✏️ Edit Tabel</button>
+            </>
+          ) : (
+            <>
+              <button onClick={saveChanges} style={{ backgroundColor: '#2ecc71', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px' }}>💾 Simpan</button>
+              <button onClick={cancelChanges} style={{ backgroundColor: '#e74c3c', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px' }}>✖ Batal</button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* ACTION BAR */}
-      <div style={{ marginBottom: 15, display: "flex", gap: 10 }}>
-        <button onClick={() => fileInputRef.current.click()} style={styles.btnImport}>⬆ Import Excel</button>
-        <button onClick={exportExcel} style={styles.btnExport}>⬇ Export Excel</button>
-        <input type="file" ref={fileInputRef} accept=".xlsx,.xls" onChange={importExcel} style={{ display: "none" }} />
-      </div>
+      <h2 style={{ textAlign: 'center', margin: '20px 0' }}>MASTER DATA SUPPLIER</h2>
 
-      {/* TABLE SECTION */}
-      <div style={styles.card}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={styles.table}>
-            <thead>
-              <tr style={{ background: "#f2f2f2" }}>
-                <th style={styles.th}>Nama Supplier</th>
-                <th style={styles.th}>Alamat</th>
-                <th style={styles.th}>Telepon</th>
-                <th style={styles.th}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {suppliers.length > 0 ? suppliers.map((s) => (
-                <tr key={s.id} style={styles.tr}>
-                  <td style={styles.td}><b>{s.nama}</b></td>
-                  <td style={styles.td}>{s.alamat}</td>
-                  <td style={styles.td}>{s.telp}</td>
-                  <td style={styles.td}>
-                    <button onClick={() => editRow(s)} style={styles.btnEditSmall}>Edit</button>
-                    <button onClick={() => deleteRow(s.id)} style={styles.btnDelSmall}>Hapus</button>
+      <div className="table-responsive" style={{ padding: '0 20px', overflowX: 'auto' }}>
+        <table className="kpi-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '14px' }}>
+          <thead style={{ backgroundColor: '#2c3e50', color: 'white' }}>
+            <tr>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>Kode Supplier</th>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>Nama Supplier</th>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>Alamat</th>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>Telp</th>
+              {isEditing && <th style={{ border: '1px solid #444', padding: '10px', backgroundColor: '#c0392b' }}>Aksi</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {supplierData.map((item) => (
+              <tr key={item.id} style={{ backgroundColor: '#fff' }}>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center', padding: '8px' }}>
+                  {isEditing ? <input style={{ width: '100%' }} value={item.kode} onChange={e => handleCellChange(item.id, "kode", e.target.value)} /> : item.kode}
+                </td>
+                <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                  {isEditing ? <input style={{ width: '100%' }} value={item.nama} onChange={e => handleCellChange(item.id, "nama", e.target.value)} /> : item.nama}
+                </td>
+                <td style={{ border: '1px solid #ddd', padding: '8px' }}>
+                  {isEditing ? <input style={{ width: '100%' }} value={item.alamat} onChange={e => handleCellChange(item.id, "alamat", e.target.value)} /> : item.alamat}
+                </td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center', padding: '8px' }}>
+                  {isEditing ? <input style={{ width: '100%' }} value={item.telp} onChange={e => handleCellChange(item.id, "telp", e.target.value)} /> : item.telp}
+                </td>
+                {isEditing && (
+                  <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>
+                    <button onClick={() => deleteRow(item.id)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>🗑️</button>
                   </td>
-                </tr>
-              )) : (
-                <tr><td colSpan="4" style={{textAlign: "center", padding: 20}}>Belum ada data supplier.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: { padding: "20px", backgroundColor: "#f4f7f6", minHeight: "100vh", fontFamily: "sans-serif" },
-  header: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
-  fullNavBar: { display: "flex", gap: "20px", marginBottom: "20px", background: "#fff", padding: "15px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", flexWrap: "wrap" },
-  navGroup: { display: "flex", flexDirection: "column", gap: "5px", borderLeft: "3px solid #7b003f", paddingLeft: "12px" },
-  navLabel: { fontSize: "10px", fontWeight: "bold", color: "#7b003f", marginBottom: "2px" },
-  btnNav: { padding: "7px 12px", cursor: "pointer", background: "#f8f9fa", border: "1px solid #ddd", borderRadius: "4px", fontSize: "12px", textAlign: "left" },
-  card: { background: "#fff", padding: "20px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)", marginBottom: 20 },
-  label: { display: "block", fontSize: "12px", marginBottom: "5px", fontWeight: "bold" },
-  input: { padding: "10px", borderRadius: "4px", border: "1px solid #ddd", width: "100%", boxSizing: "border-box" },
-  btnSave: { background: "#7b003f", color: "#fff", border: "none", padding: "11px 25px", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" },
-  btnCancel: { background: "#6c757d", color: "#fff", border: "none", padding: "11px 15px", borderRadius: "4px", cursor: "pointer" },
-  btnImport: { background: "#28a745", color: "#fff", border: "none", padding: "8px 15px", borderRadius: 4, cursor: "pointer" },
-  btnExport: { background: "#007bff", color: "#fff", border: "none", padding: "8px 15px", borderRadius: 4, cursor: "pointer" },
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: { padding: "12px", textAlign: "left", color: "#666", fontSize: "13px", borderBottom: "2px solid #eee" },
-  td: { padding: "12px", fontSize: "14px", borderBottom: "1px solid #f9f9f9" },
-  tr: { transition: "0.2s" },
-  btnEditSmall: { marginRight: 5, background: "#ffc107", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" },
-  btnDelSmall: { background: "#dc3545", color: "#fff", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" },
-  btnLog: { background: "#333", color: "#fff", border: "none", padding: "8px 15px", borderRadius: "6px", cursor: "pointer" },
-  loading: { textAlign: "center", padding: 50 }
-};
