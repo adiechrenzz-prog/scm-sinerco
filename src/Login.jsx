@@ -24,70 +24,99 @@ export default function Login() {
     { id: "kemala", name: "Gunung Kemala", path: "/dashboard-kemala" },
   ];
 
-  // Membersihkan sisa login setiap kali masuk halaman login
   useEffect(() => {
-    localStorage.clear();
+    // Membersihkan sisa sesi lama saat masuk halaman login
+    localStorage.removeItem("user_field_data");
   }, []);
 
   const handleLoginAction = async (e) => {
     e.preventDefault();
     if (!email || !password || !field) {
-      alert("Isi Email, Password, dan Pilih Lokasi!");
+      alert("Mohon isi semua data!");
       return;
     }
 
     setLoading(true);
 
     try {
-      // 1. Login ke Firebase Auth
+      // 1. Proses Login
       const res = await signInWithEmailAndPassword(auth, email, password);
       
-      // 2. Ambil data HANYA dari Firestore (db) - Sesuai gambar Anda
+      // 2. Ambil data dari Cloud Firestore (db)
       const docRef = doc(db, "users", res.user.uid);
       const snap = await getDoc(docRef);
 
       if (snap.exists()) {
         const userData = snap.data();
         
-        // 3. Validasi: Admin atau Field Cocok
-        if (userData.field === "admin" || userData.field === field) {
-          // Simpan ke cache agar ProtectedField tidak bingung
+        // 3. Validasi Hak Akses
+        const isAdmin = userData.field === "admin";
+        const isFieldMatch = userData.field === field;
+
+        if (isAdmin || isFieldMatch) {
+          // Simpan data ke localStorage agar ProtectedField mengenalinya
           localStorage.setItem("user_field_data", JSON.stringify(userData));
           
-          const targetPath = fields.find(f => f.id === field).path;
-          
-          // 4. Navigasi Paksa untuk memutus loop
-          window.location.href = targetPath;
+          const target = fields.find(f => f.id === field);
+          if (target) {
+            // Memaksa reload ke dashboard untuk memutus infinite loop/throttling
+            window.location.href = target.path;
+          }
         } else {
           await signOut(auth);
-          alert(`Akses Ditolak! Akun Anda terdaftar di: ${userData.field.toUpperCase()}`);
+          alert(`Akses Ditolak! Akun Anda terdaftar untuk: ${userData.field.toUpperCase()}.`);
           setLoading(false);
         }
       } else {
         await signOut(auth);
-        alert("Data Role tidak ditemukan di Firestore Koleksi 'users'!");
+        alert("Data role tidak ditemukan di Firestore. Periksa koleksi 'users'!");
         setLoading(false);
       }
     } catch (err) {
       console.error(err);
-      alert("Login Gagal: Periksa Email/Password Anda.");
+      alert("Email atau Password salah.");
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", backgroundColor: "#f5f5f5" }}>
-      <div style={{ padding: "40px", width: "100%", maxWidth: "360px", textAlign: "center", borderRadius: "12px", background: "#fff", boxShadow: "0 4px 15px rgba(0,0,0,0.1)" }}>
-        <img src="/Logo-Sinerco.png" alt="Logo" style={{ width: "180px", marginBottom: "20px" }} />
-        <h3 style={{ marginBottom: "25px" }}>Inventory System Login</h3>
-        <form onSubmit={handleLoginAction} style={{ display: "flex", flexDirection: "column" }}>
-          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: "12px", marginBottom: "15px", borderRadius: "6px", border: "1px solid #ccc" }} required />
-          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ padding: "12px", marginBottom: "15px", borderRadius: "6px", border: "1px solid #ccc" }} required />
-          <select value={field} onChange={(e) => setField(e.target.value)} style={{ padding: "12px", marginBottom: "15px", borderRadius: "6px", border: "1px solid #ccc" }} required>
+    <div style={styles.outerContainer}>
+      <div style={styles.container}>
+        <img src="/Logo-Sinerco.png" alt="Logo Sinerco" style={styles.logo} />
+        <h3 style={styles.title}>Supply Chain Management </h3>
+        <form onSubmit={handleLoginAction} style={styles.form}>
+          <input
+            type="email"
+            placeholder="Email Address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={styles.input}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={styles.input}
+            required
+          />
+          <select
+            value={field}
+            onChange={(e) => setField(e.target.value)}
+            style={styles.input}
+            required
+          >
             <option value="">-- Pilih Lokasi Field --</option>
-            {fields.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+            {fields.map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
           </select>
-          <button type="submit" disabled={loading} style={{ padding: "12px", background: "#800020", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>
+          <button 
+            type="submit" 
+            disabled={loading} 
+            style={{...styles.button, opacity: loading ? 0.7 : 1}}
+          >
             {loading ? "Authenticating..." : "Login Ke Dashboard"}
           </button>
         </form>
@@ -95,3 +124,13 @@ export default function Login() {
     </div>
   );
 }
+
+const styles = {
+  outerContainer: { display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", backgroundColor: "#f5f5f5" },
+  container: { padding: "40px", width: "100%", maxWidth: "360px", textAlign: "center", borderRadius: "12px", background: "#fff", boxShadow: "0 4px 15px rgba(0,0,0,0.1)" },
+  logo: { width: "180px", marginBottom: "20px" },
+  title: { color: "#333", marginBottom: "25px", fontWeight: "600" },
+  form: { display: "flex", flexDirection: "column" },
+  input: { padding: "12px", marginBottom: "15px", borderRadius: "6px", border: "1px solid #ccc", outline: "none" },
+  button: { padding: "12px", background: "#800020", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }
+};

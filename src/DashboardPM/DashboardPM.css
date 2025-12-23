@@ -1,0 +1,95 @@
+.pm-dashboard-wrapper {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle, #ffffff, #eef2f7);
+  position: relative;
+  overflow: hidden;
+  font-family: sans-serif;
+}
+
+.pm-dashboard-back-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 12px 24px;
+  background: #1a374d;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.3s;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.pm-dashboard-back-btn:hover {
+  background: #2c5270;
+  transform: translateX(5px);
+}
+
+/* Garis penghubung putus-putus */
+.pm-dashboard-line {
+  stroke: #1a374d;
+  stroke-width: 2;
+  stroke-dasharray: 8,8;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+/* Lingkaran Pusat */
+.pm-dashboard-center-circle {
+  fill: #1a374d;
+  stroke: #adc4d6;
+  stroke-width: 8;
+  filter: drop-shadow(0 0 15px rgba(26, 55, 77, 0.4));
+}
+
+.pm-dashboard-center-text {
+  fill: white;
+  font-weight: bold;
+  font-size: 28px;
+  text-transform: uppercase;
+}
+
+/* Node Menu */
+.pm-dashboard-node {
+  cursor: pointer;
+}
+
+.pm-node-circle {
+  fill: white;
+  stroke: #1a374d;
+  stroke-width: 4;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.pm-dashboard-node:hover .pm-node-circle {
+  fill: #f0f7ff;
+  stroke: #406882;
+  r: 120; /* Sedikit membesar saat hover */
+}
+
+.pm-dashboard-node-text {
+  fill: #1a374d;
+  font-size: 18px;
+  font-weight: bold;
+  pointer-events: none;
+  user-select: none;
+}
+
+.pm-dashboard-node:hover .pm-dashboard-node-text {
+  fill: #406882;
+  font-size: 20px;
+}
+
+/* Animasi Rotasi Halus pada SVG agar terlihat hidup */
+@keyframes softRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Jika ingin menambahkan efek orbit, aktifkan ini di class pm-dashboard-svg */
+/* .pm-dashboard-svg { animation: softRotate 100s linear infinite; } */

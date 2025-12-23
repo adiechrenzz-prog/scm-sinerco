@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase"; 
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, writeBatch } from "firebase/firestore";
 
-// Import Library Export
+// Import Library Export & Import
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf"; 
 import autoTable from "jspdf-autotable";
@@ -21,6 +21,9 @@ export default function LocationMaster() {
   const [newLoc, setNewLoc] = useState({
     namaLokasi: "", regional: "", teknisi: "", jumlahUnit: ""
   });
+
+  // Hitung Total Unit dari data locations
+  const totalUnit = locations.reduce((sum, item) => sum + (Number(item.jumlahUnit) || 0), 0);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
@@ -98,15 +101,65 @@ export default function LocationMaster() {
     setShowForm(false);
   };
 
+  // --- FUNGSI IMPORT EXCEL ---
+  const handleImportExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        if (jsonData.length === 0) {
+          alert("File kosong!");
+          return;
+        }
+
+        setLoading(true);
+        const batch = writeBatch(db);
+        const locationRef = collection(db, "location_master");
+
+        jsonData.forEach((item) => {
+          const newDocRef = doc(locationRef);
+          batch.set(newDocRef, {
+            namaLokasi: item["NAMA LOKASI"] || item.namaLokasi || "",
+            regional: item.REGIONAL || item.regional || "",
+            teknisi: item.TEKNISI || item.teknisi || "",
+            jumlahUnit: String(item["JUMLAH UNIT"] || item.jumlahUnit || "0")
+          });
+        });
+
+        await batch.commit();
+        alert(`Berhasil mengimpor ${jsonData.length} data lokasi!`);
+        fetchLocations();
+      } catch (error) {
+        console.error("Import error:", error);
+        alert("Gagal mengimpor data. Pastikan format kolom benar.");
+      } finally {
+        setLoading(false);
+        e.target.value = ""; // Reset input
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   // --- EXPORT & PRINT ---
   const exportExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(locations.map(l => ({
-      NO: l.no,
-      "NAMA LOKASI": l.namaLokasi,
-      REGIONAL: l.regional,
-      TEKNISI: l.teknisi,
-      "JUMLAH UNIT": l.jumlahUnit
-    })));
+    const worksheet = XLSX.utils.json_to_sheet([
+      ...locations.map(l => ({
+        NO: l.no,
+        "NAMA LOKASI": l.namaLokasi,
+        REGIONAL: l.regional,
+        TEKNISI: l.teknisi,
+        "JUMLAH UNIT": l.jumlahUnit
+      })),
+      { NO: "", "NAMA LOKASI": "TOTAL UNIT", REGIONAL: "", TEKNISI: "", "JUMLAH UNIT": totalUnit }
+    ]);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Locations");
     XLSX.writeFile(workbook, "Master_Lokasi.xlsx");
@@ -118,14 +171,16 @@ export default function LocationMaster() {
     autoTable(doc, {
       startY: 25,
       head: [['No', 'Nama Lokasi', 'Regional', 'Teknisi', 'Jumlah Unit']],
-      body: locations.map(l => [l.no, l.namaLokasi, l.regional, l.teknisi, l.jumlahUnit]),
+      body: [
+        ...locations.map(l => [l.no, l.namaLokasi, l.regional, l.teknisi, l.jumlahUnit]),
+        [{ content: 'TOTAL UNIT', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } }, { content: totalUnit, styles: { halign: 'center', fontStyle: 'bold' } }]
+      ],
       theme: 'grid',
       headStyles: { fillColor: [26, 55, 77] }
     });
     doc.save("Master_Lokasi.pdf");
   };
 
-  // Fungsi Cetak Langsung
   const handlePrint = () => {
     window.print();
   };
@@ -143,7 +198,18 @@ export default function LocationMaster() {
           <p style={{ color: "#666", margin: 0 }}>Daftar Area & Teknisi Workshop</p>
         </div>
         
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <input 
+            type="file" 
+            id="importExcel" 
+            accept=".xlsx, .xls" 
+            onChange={handleImportExcel} 
+            style={{ display: "none" }} 
+          />
+          <label htmlFor="importExcel" style={{ ...btnExport, backgroundColor: "#6f42c1", display: "flex", alignItems: "center", cursor: "pointer" }}>
+            IMPORT EXCEL
+          </label>
+
           <button onClick={handlePrint} style={{ ...btnExport, backgroundColor: "#007bff" }}>CETAK</button>
           <button onClick={exportExcel} style={{ ...btnExport, backgroundColor: "#217346" }}>EXCEL</button>
           <button onClick={exportPDF} style={{ ...btnExport, backgroundColor: "#d32f2f" }}>PDF</button>
@@ -169,14 +235,13 @@ export default function LocationMaster() {
         </div>
       )}
 
-      {/* CSS untuk menyembunyikan elemen saat Print */}
       <style>
         {`
           @media print {
             .no-print { display: none !important; }
             .printable-area { padding: 0 !important; background-color: white !important; }
-            table { border: 1px solid #000 !important; }
-            th, td { border: 1px solid #000 !important; }
+            table { border: 1px solid #000 !important; width: 100%; }
+            th, td { border: 1px solid #000 !important; padding: 8px; }
             .action-column { display: none !important; }
           }
         `}
@@ -199,21 +264,29 @@ export default function LocationMaster() {
             {loading ? (
               <tr><td colSpan="6" style={{ textAlign: "center", padding: "30px" }}>Memuat data...</td></tr>
             ) : locations.length > 0 ? (
-              locations.map((item) => (
-                <tr key={item.id} style={{ borderBottom: "1px solid #eee" }}>
-                  <td style={{ ...tdStyle, textAlign: "center", fontWeight: "bold" }}>{item.no}</td>
-                  <td style={tdStyle}>{item.namaLokasi}</td>
-                  <td style={tdStyle}>{item.regional}</td>
-                  <td style={tdStyle}>{item.teknisi}</td>
-                  <td style={{ ...tdStyle, textAlign: "center" }}>{item.jumlahUnit}</td>
-                  <td className="no-print" style={tdStyle}>
-                    <div style={{ display: "flex", gap: "5px" }}>
-                      <button onClick={() => handleEdit(item)} style={btnEdit}>Edit</button>
-                      <button onClick={() => handleDelete(item.id)} style={btnDelete}>Hapus</button>
-                    </div>
-                  </td>
+              <>
+                {locations.map((item) => (
+                  <tr key={item.id} style={{ borderBottom: "1px solid #eee" }}>
+                    <td style={{ ...tdStyle, textAlign: "center", fontWeight: "bold" }}>{item.no}</td>
+                    <td style={tdStyle}>{item.namaLokasi}</td>
+                    <td style={tdStyle}>{item.regional}</td>
+                    <td style={tdStyle}>{item.teknisi}</td>
+                    <td style={{ ...tdStyle, textAlign: "center" }}>{item.jumlahUnit}</td>
+                    <td className="no-print" style={tdStyle}>
+                      <div style={{ display: "flex", gap: "5px" }}>
+                        <button onClick={() => handleEdit(item)} style={btnEdit}>Edit</button>
+                        <button onClick={() => handleDelete(item.id)} style={btnDelete}>Hapus</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {/* Baris Total Unit */}
+                <tr style={{ backgroundColor: "#f1f1f1", fontWeight: "bold" }}>
+                  <td colSpan="4" style={{ ...tdStyle, textAlign: "right", paddingRight: "20px" }}>TOTAL UNIT TERPASANG:</td>
+                  <td style={{ ...tdStyle, textAlign: "center", color: "#1a374d", fontSize: "16px" }}>{totalUnit}</td>
+                  <td className="no-print" style={tdStyle}></td>
                 </tr>
-              ))
+              </>
             ) : (
               <tr><td colSpan="6" style={{ textAlign: "center", padding: "50px", color: "#999" }}>Belum ada data lokasi.</td></tr>
             )}
@@ -227,7 +300,7 @@ export default function LocationMaster() {
 // === STYLES ===
 const btnBack = { padding: "8px 16px", backgroundColor: "#fff", border: "1px solid #ddd", borderRadius: "8px", cursor: "pointer", fontWeight: "600" };
 const btnAdd = { padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" };
-const btnExport = { padding: "10px 15px", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "12px" };
+const btnExport = { padding: "10px 15px", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "12px", textAlign: "center" };
 const formCard = { backgroundColor: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", marginBottom: "25px" };
 const formGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "15px" };
 const inputGroup = { display: "flex", flexDirection: "column", gap: "5px" };

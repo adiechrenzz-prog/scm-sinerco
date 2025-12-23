@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "../firebase"; 
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, writeBatch } from "firebase/firestore";
 
-// Import Library Export
+// Import Library Export & Import
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -99,6 +99,54 @@ export default function AssetByLocation() {
     setShowForm(false);
   };
 
+  // --- FITUR IMPORT EXCEL ---
+  const handleImportExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+        if (jsonData.length === 0) {
+          alert("File Excel kosong atau format tidak sesuai.");
+          return;
+        }
+
+        setLoading(true);
+        const batch = writeBatch(db);
+        const assetRef = collection(db, "asset_locations");
+
+        jsonData.forEach((item) => {
+          const newDocRef = doc(assetRef);
+          batch.set(newDocRef, {
+            unit: item.UNIT || item.unit || "",
+            tahunUnit: String(item["THN UNIT"] || item.tahunUnit || ""),
+            lokasi: item.LOKASI || item.lokasi || "",
+            refurbish: item.REFURBISH || item.refurbish || "",
+            tahunRefurbish: String(item["THN REFURBISH"] || item.tahunRefurbish || "")
+          });
+        });
+
+        await batch.commit();
+        alert(`Berhasil mengimpor ${jsonData.length} data!`);
+        fetchAssets();
+      } catch (error) {
+        console.error("Import error:", error);
+        alert("Gagal mengimpor data. Periksa format file Anda.");
+      } finally {
+        setLoading(false);
+        e.target.value = ""; // Clear input file
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
   // --- FITUR EXPORT ---
   const exportExcel = () => {
     const dataToExport = assets.map(item => ({
@@ -144,7 +192,19 @@ export default function AssetByLocation() {
           <p style={{ color: "#666", margin: 0 }}>Inventory Workshop 2025</p>
         </div>
         
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {/* Input Import Hidden */}
+          <input 
+            type="file" 
+            id="importExcel" 
+            accept=".xlsx, .xls" 
+            onChange={handleImportExcel} 
+            style={{ display: "none" }} 
+          />
+          <label htmlFor="importExcel" style={{ ...btnExport, backgroundColor: "#007bff", display: "flex", alignItems: "center", cursor: "pointer" }}>
+            IMPORT EXCEL
+          </label>
+
           <button onClick={exportExcel} style={{ ...btnExport, backgroundColor: "#217346" }}>EXCEL</button>
           <button onClick={exportPDF} style={{ ...btnExport, backgroundColor: "#d32f2f" }}>PDF</button>
           <button onClick={() => window.print()} style={{ ...btnExport, backgroundColor: "#1a374d" }}>PRINT</button>
@@ -218,7 +278,7 @@ export default function AssetByLocation() {
 // === STYLES ===
 const btnBack = { padding: "8px 16px", backgroundColor: "#fff", border: "1px solid #ddd", borderRadius: "8px", cursor: "pointer", fontWeight: "600" };
 const btnAdd = { padding: "10px 20px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "bold" };
-const btnExport = { padding: "10px 15px", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "12px" };
+const btnExport = { padding: "10px 15px", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "12px", textAlign: "center" };
 const formCard = { backgroundColor: "white", padding: "25px", borderRadius: "12px", boxShadow: "0 4px 12px rgba(0,0,0,0.08)", marginBottom: "25px" };
 const formGrid = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "15px" };
 const inputGroup = { display: "flex", flexDirection: "column", gap: "5px" };

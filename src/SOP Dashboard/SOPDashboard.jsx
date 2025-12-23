@@ -2,13 +2,13 @@ import { useNavigate } from "react-router-dom";
 import "./SOPDashboard.css";
 
 const sopMenus = [
-  { label: "SOP Audit", path: "/sop-audit" },
-  { label: "SOP File List", path: "/sop-file-list" },
-  { label: "SOP File Viewer", path: "/sop-file-viewer" },
-  { label: "SOP Inventory", path: "/sop-inventory" },
-  { label: "SOP Maintenance", path: "/sop-maintenance" },
-  { label: "SOP Procurement", path: "/sop-procurement" },
-  { label: "SOP SCM", path: "/sop-scm-detail" },
+  { label: "Prosedur SCM", path: "/sop-audit" },
+  { label: "Form SCM", path: "/sop-file-list" },
+  { label: "Sasaran Target Program", path: "/sop-file-viewer" },
+  { label: "Identifikasi Isu & Bahaya", path: "/sop-inventory" },
+  { label: "Root Cause SCM", path: "/sop-maintenance" },
+  { label: "Audit Inventory SCM", path: "/sop-procurement" },
+  { label: "Audit Stock Opname", path: "/sop-scm-detail" },
 ];
 
 export default function SOPDashboard() {
@@ -22,7 +22,7 @@ export default function SOPDashboard() {
   return (
     <div className="sop-wrapper">
       {/* Tombol Back ke Dashboard Utama */}
-      <button className="back-button" onClick={() => navigate("/dashboard")}>
+      <button className="back-button" onClick={() => navigate("/dashboard-ho")}>
         ← BACK TO DASHBOARD
       </button>
 

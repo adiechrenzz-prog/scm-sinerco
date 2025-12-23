@@ -5,18 +5,18 @@ import { useNavigate } from "react-router-dom";
 import "./DashboardSCMCircle.css";
 
 const menus = [
-  { label: "Inventory", path: "/inventory" },
-  { label: "Instrument Cal.", path: "/instrument-list" },
-  { label: "PM Service", path: "/pm-unit" },
-  { label: "PSV Asset Reg.", path: "/psv-list" },
+  { label: "Inventory", path: "/dashboard-inventory"},
+  { label: "Instrument Cal.", path: "/dashboard-instrumen"},
+  { label: "PM Service", path: "/dashboard-pm"},
+  { label: "PSV Asset Reg.", path: "/dashboard-psv"},
   { label: "Asset Locations", path: "/asset-locations-dashboard" },
-  { label: "Stock Opname", path: "/stock-opname" },
+  { label: "Stock Opname", path: "/dashboard-stock-opname"},
   { label: "Oil Consumption", path: "/oil-dashboard" },
   { label: "Procurement", path: "/procurement-dashboard" },
   { label: "SOP", path: "/sop-scm" },
   { label: "Control Panels", path: "/control-panels" },
   { label: "Field Inventory", path: "/field-inventory-dashboard" },
-  { label: "Sasaran Mutu", path: "/quarter-inventory" },
+  { label: "Sasaran Mutu", path: "/sasaran-dashboard"},
   { label: "Quarter Report", path: "/quarter-dashboard" },
   { label: "SCM Perf. (KPI)", path: "/kpi-dashboard" },
 ];

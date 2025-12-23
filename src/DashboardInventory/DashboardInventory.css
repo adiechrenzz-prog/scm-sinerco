@@ -1,0 +1,83 @@
+.inv-dash-wrapper {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle, #ffffff, #f0fdf4);
+  position: relative;
+  overflow: hidden;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+.inv-dash-back-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 10px 20px;
+  background: #065f46;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  z-index: 100;
+  transition: 0.3s;
+}
+
+.inv-dash-back-btn:hover {
+  background: #047857;
+  transform: scale(1.05);
+}
+
+.inv-dash-line {
+  stroke: #10b981;
+  stroke-width: 2;
+  stroke-dasharray: 6,6;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.inv-dash-center-circle {
+  fill: #064e3b;
+  stroke: #d1fae5;
+  stroke-width: 10;
+  filter: drop-shadow(0 4px 15px rgba(6, 78, 59, 0.3));
+}
+
+.inv-dash-center-text {
+  fill: white;
+  font-weight: 800;
+  font-size: 32px;
+  text-transform: uppercase;
+}
+
+.inv-node-circle {
+  fill: white;
+  stroke: #059669;
+  stroke-width: 4;
+  transition: all 0.3s ease;
+}
+
+.inv-dash-node {
+  cursor: pointer;
+}
+
+.inv-dash-node:hover .inv-node-circle {
+  fill: #f0fdf4;
+  stroke: #10b981;
+  r: 115;
+}
+
+.inv-dash-node-text {
+  fill: #064e3b;
+  font-size: 17px;
+  font-weight: 600;
+  pointer-events: none;
+  user-select: none;
+}
+
+.inv-dash-node:hover .inv-dash-node-text {
+  fill: #10b981;
+  font-size: 19px;
+}

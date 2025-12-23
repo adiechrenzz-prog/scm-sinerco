@@ -1,0 +1,175 @@
+.opname-dash-wrapper {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle, #ffffff, #fffbeb);
+  position: relative;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.opname-dash-back-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 12px 24px;
+  background: #b45309; /* Deep Amber */
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  z-index: 100;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.opname-dash-back-btn:hover {
+  background: #92400e;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.opname-dash-line {
+  stroke: #f59e0b;
+  stroke-width: 2;
+  stroke-dasharray: 8,8;
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.opname-dash-center-circle {
+  fill: #78350f;
+  stroke: #fef3c7;
+  stroke-width: 12;
+  filter: drop-shadow(0 8px 20px rgba(120, 53, 15, 0.4));
+}
+
+.opname-dash-center-text {
+  fill: white;
+  font-weight: 900;
+  font-size: 34px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.opname-node-circle {
+  fill: #ffffff;
+  stroke: #d97706;
+  stroke-width: 5;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.opname-dash-node {
+  cursor: pointer;
+}
+
+.opname-dash-node:hover .opname-node-circle {
+  fill: #fffbeb;
+  stroke: #f59e0b;
+  r: 120;
+}
+
+.opname-dash-node-text {
+  fill: #451a03;
+  font-size: 18px;
+  font-weight: 700;
+  pointer-events: none;
+  user-select: none;
+}
+
+.opname-dash-node:hover .opname-dash-node-text {
+  fill: #b45309;
+  font-size: 20px;
+}
+
+/* Animasi Rotasi Halus pada Background (Opsional) */
+@keyframes softRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.opname-dash-svg {
+  animation: fadeIn 0.8s ease-out;
+}
+/* src/StockOpname/DashboardStockOpname.css */
+.opname-dash-wrapper {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle, #ffffff, #fffbeb);
+  position: relative;
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.opname-dash-back-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  padding: 12px 24px;
+  background: #b45309;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  z-index: 100;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+}
+
+.opname-dash-back-btn:hover {
+  background: #92400e;
+  transform: translateY(-2px);
+}
+
+.opname-dash-line {
+  stroke: #f59e0b;
+  stroke-width: 2;
+  stroke-dasharray: 8,8;
+  opacity: 0.3;
+}
+
+.opname-dash-center-circle {
+  fill: #78350f;
+  stroke: #fef3c7;
+  stroke-width: 12;
+}
+
+.opname-dash-center-text {
+  fill: white;
+  font-weight: 900;
+  font-size: 34px;
+}
+
+.opname-node-circle {
+  fill: #ffffff;
+  stroke: #d97706;
+  stroke-width: 5;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.opname-dash-node {
+  cursor: pointer;
+}
+
+.opname-dash-node:hover .opname-node-circle {
+  fill: #fffbeb;
+  stroke: #f59e0b;
+  r: 120;
+}
+
+.opname-dash-node-text {
+  fill: #451a03;
+  font-size: 18px;
+  font-weight: 700;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
