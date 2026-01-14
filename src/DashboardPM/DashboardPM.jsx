@@ -20,10 +20,10 @@ export default function DashboardPM() {
 
   return (
     <div className="pm-dashboard-wrapper">
-      {/* Tombol Back */}
+      {/* PERBAIKAN: Navigasi diubah ke /dashboard-scm agar sesi tetap terjaga */}
       <button 
         className="pm-dashboard-back-btn" 
-        onClick={() => navigate("/dashboard-ho")}
+        onClick={() => navigate("/dashboard-scm")}
         style={{ zIndex: 1000, cursor: "pointer", position: "relative" }}
       >
         ← BACK TO HOME

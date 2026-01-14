@@ -20,10 +20,10 @@ export default function DashboardInstrumen() {
 
   return (
     <div className="inst-dash-wrapper">
-      {/* Tombol Back */}
+      {/* PERBAIKAN: Navigasi diubah ke /dashboard-scm agar tetap login */}
       <button 
         className="inst-dash-back-btn" 
-        onClick={() => navigate("/dashboard-ho")}
+        onClick={() => navigate("/dashboard-scm")}
       >
         ← BACK TO HOME
       </button>

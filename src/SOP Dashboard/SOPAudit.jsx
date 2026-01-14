@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 export default function SOPAudit() {
   const navigate = useNavigate();
 
-  // ID Folder Google Drive
+  // ID Folder terbaru yang Anda berikan
   const folderId = "16rzubeW6OkLu081ukVWK0KBxHlvFve21";
 
   return (
@@ -45,8 +45,7 @@ export default function SOPAudit() {
           <span>←</span> KEMBALI
         </button>
         
-        {/* JUDUL SUDAH DIGANTI */}
-        <h1 style={{ margin: 0, fontSize: '24px', color: '#333' }}>Prosedur SCM</h1>
+        <h1 style={{ margin: 0, fontSize: '24px', color: '#333' }}>SOP Audit Documents</h1>
       </div>
       
       {/* Google Drive Folder Viewer */}
@@ -63,7 +62,7 @@ export default function SOPAudit() {
           width="100%"
           height="100%"
           frameBorder="0"
-          title="Prosedur SCM Content"
+          title="SOP Audit Drive Content"
           style={{ border: 'none' }}
         ></iframe>
       </div>

@@ -126,12 +126,12 @@ export default function SasaranDashboard() {
   return (
     <div className="sasaran-container">
       <div className="sasaran-nav" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f4f4f4', alignItems: 'center' }}>
-        <button className="btn-home" onClick={() => navigate("/dashboard-ho")}>← HOME</button>
+        {/* PERBAIKAN DI SINI: Navigasi diarahkan ke /dashboard-scm */}
+        <button className="btn-home" onClick={() => navigate("/dashboard-scm")}>← HOME</button>
         
         <div className="action-buttons" style={{ display: 'flex', gap: '8px' }}>
           {!isEditing ? (
             <>
-              {/* TOMBOL EDIT SPREADSHEET BARU */}
               <a href={SPREADSHEET_EDIT_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
                 <button style={{ backgroundColor: '#1d6f42', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}>
                   🌐 Edit Spreadsheet

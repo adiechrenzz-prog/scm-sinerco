@@ -32,13 +32,14 @@ export default function AssetLocationDashboard() {
 
   return (
     <div className="asset-loc-wrapper">
-      <button onClick={() => navigate("/dashboard-ho")} className="back-btn">
+      {/* PERBAIKAN: Navigasi diubah ke /dashboard-scm agar tidak logout otomatis */}
+      <button onClick={() => navigate("/dashboard-scm")} className="back-btn">
         ← BACK TO HOME
       </button>
 
       <div className="svg-container">
         <svg viewBox={`0 0 ${size} ${size}`} style={{ width: "100%", height: "auto", overflow: "visible" }}>
-          {/* Garis */}
+          {/* Garis Penghubung */}
           {locationMenus.map((_, i) => (
             <line 
               key={i}

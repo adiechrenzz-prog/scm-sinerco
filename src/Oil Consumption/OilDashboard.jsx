@@ -19,7 +19,8 @@ export default function OilDashboard() {
 
   return (
     <div className="oil-wrapper">
-      <button className="oil-back-btn" onClick={() => navigate("/dashboard-ho")}>
+      {/* PERBAIKAN: Navigasi diubah ke /dashboard-scm agar sesi login tetap aktif */}
+      <button className="oil-back-btn" onClick={() => navigate("/dashboard-scm")}>
         ← BACK
       </button>
 

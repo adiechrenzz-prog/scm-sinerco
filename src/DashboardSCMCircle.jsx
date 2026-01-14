@@ -25,36 +25,38 @@ export default function DashboardSCMCircle() {
   const navigate = useNavigate();
   const [initializing, setInitializing] = useState(true);
 
-  // Proteksi Halaman
+  // Proteksi Halaman: Cek status login Firebase
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (!user) {
+        // Jika tidak ada user, arahkan ke login secara paksa
         navigate("/login", { replace: true });
       } else {
+        // Jika ada user, matikan loading initializing
         setInitializing(false);
       }
     });
     return () => unsub();
   }, [navigate]);
 
-  // Ukuran kanvas dan proporsi
+  // Ukuran kanvas dan proporsi visual
   const size = 1000; 
   const center = size / 2;
   const radius = 380; 
   const angleStep = (2 * Math.PI) / menus.length;
 
   const handleLogout = async () => {
-    try {
-      // 1. Hapus cache data field agar tidak error saat ganti akun
-      localStorage.removeItem("user_field_data");
-      
-      // 2. Sign out dari Firebase
-      await signOut(auth);
-      
-      // 3. Pindah ke halaman login
-      navigate("/login", { replace: true });
-    } catch (error) {
-      console.error("Logout error:", error);
+    if (window.confirm("Apakah Anda yakin ingin logout?")) {
+      try {
+        // Hapus data lokal agar bersih
+        localStorage.removeItem("user_field_data");
+        // Sign out dari Firebase
+        await signOut(auth);
+        // Kembali ke login
+        navigate("/login", { replace: true });
+      } catch (error) {
+        console.error("Logout error:", error);
+      }
     }
   };
 
@@ -62,16 +64,17 @@ export default function DashboardSCMCircle() {
 
   return (
     <div className="dashboard-container">
+      {/* Tombol Logout */}
       <button className="btn-logout-mini" onClick={handleLogout}>
         LOGOUT
       </button>
 
       <div className="svg-wrapper">
         <svg viewBox={`0 0 ${size} ${size}`} className="main-svg">
-          {/* Garis Orbit Halus */}
+          {/* Garis Orbit Putus-putus */}
           <circle cx={center} cy={center} r={radius} className="orbit-path" />
 
-          {/* Garis Penghubung dari Tengah */}
+          {/* Garis Penghubung dari Pusat ke Node */}
           {menus.map((_, i) => {
             const angle = i * angleStep - Math.PI / 2;
             const x = center + radius * Math.cos(angle);
@@ -85,7 +88,7 @@ export default function DashboardSCMCircle() {
             );
           })}
 
-          {/* Pusat: Supply Chain Management */}
+          {/* Pusat Dashboard: Supply Chain Management */}
           <g className="center-hub">
             <circle cx={center} cy={center} r="130" className="hub-circle" />
             <text x={center} y={center} textAnchor="middle" className="hub-text">
@@ -94,7 +97,7 @@ export default function DashboardSCMCircle() {
             </text>
           </g>
 
-          {/* Node Menu */}
+          {/* Node-node Menu Lingkaran */}
           {menus.map((m, i) => {
             const angle = i * angleStep - Math.PI / 2;
             const x = center + radius * Math.cos(angle);
@@ -104,11 +107,16 @@ export default function DashboardSCMCircle() {
             const totalLines = words.length;
 
             return (
-              <g key={i} className="menu-node" onClick={() => navigate(m.path)}>
+              <g 
+                key={i} 
+                className="menu-node" 
+                onClick={() => navigate(m.path)}
+                style={{ cursor: "pointer" }}
+              >
                 <circle cx={x} cy={y} r="75" className="node-circle" />
                 <text x={x} y={y} textAnchor="middle" className="node-label">
                   {words.map((word, idx) => {
-                    // Kalkulasi dyOffset agar teks 1, 2, atau 3 baris tetap di tengah
+                    // Kalkulasi posisi baris teks agar tetap di tengah lingkaran node
                     const dyOffset = idx === 0 ? -( (totalLines - 1) * 10 ) + 5 : 20;
                     return (
                       <tspan x={x} dy={dyOffset} key={idx}>

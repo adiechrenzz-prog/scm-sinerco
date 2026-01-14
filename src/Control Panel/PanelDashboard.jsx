@@ -19,7 +19,8 @@ export default function PanelDashboard() {
 
   return (
     <div className="panel-wrapper">
-      <button className="back-btn" onClick={() => navigate("/dashboard-ho")}>
+      {/* PERBAIKAN: Navigasi diubah ke /dashboard-scm agar tidak logout */}
+      <button className="back-btn" onClick={() => navigate("/dashboard-scm")}>
         ← BACK
       </button>
 

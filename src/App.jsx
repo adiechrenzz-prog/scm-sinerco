@@ -3,18 +3,6 @@ import React from "react";
 
 import Login from "./Login";
 import DashboardSCMCircle from "./DashboardSCMCircle";
-import DashboardJatibarang from "./DashboardJatibarang";
-import DashboardJatiasri from "./DashboardJatiasri";
-import DashboardTambun from "./DashboardTambun";
-import DashboardONWJ from "./DashboardONWJ";
-import DashboardSangasanga from "./DashboardSangasanga";
-import DashboardTarakan from "./DashboardTarakan";
-import DashboardKampar from "./DashboardKampar";
-import DashboardLangkap from "./DashboardLangkap";
-import DashboardTMB from "./DashboardTMB";
-import DashboardLimau from "./DashboardLimau";
-import DashboardKemala from "./DashboardKemala";
-
 import ResetDatabase from "./ResetDatabase";
 import ProtectedField from "./ProtectedField";
 
@@ -34,7 +22,7 @@ import StockOpname from "./DashboardInventory/StockOpname";
 /* --- IMPORT MODUL STOCK OPNAME --- */
 import DashboardStockOpname from "./StockOpname/DashboardStockOpname";
 import StockOpnameField from "./StockOpname/StockOpnameField";
-import StockOpnameReport from "./StockOpname/StockOpnameReport"; // <-- FIXED PATH
+import StockOpnameReport from "./StockOpname/StockOpnameReport";
 import StockOpnameSchedule from "./StockOpname/StockOpnameSchedule";
 import StockOpnameWorkshop from "./StockOpname/StockOpnameWorkshop";
 import StockVariance from "./StockOpname/StockVariance";
@@ -78,9 +66,12 @@ import CalibrationHistory from "./Dashboard Instrumen/CalibrationHistory";
 import CalibrationSchedule from "./Dashboard Instrumen/CalibrationSchedule";
 import CalibrationReminder from "./Dashboard Instrumen/CalibrationReminder";
 
-/* --- IMPORT MODUL SASARAN MUTU --- */
+/* --- IMPORT MODUL SASARAN MUTU & KPI --- */
 import SasaranDashboard from "./SasaranDashboard/SasaranDashboard";
 import SasaranFormula from "./SasaranDashboard/SasaranFormula";
+
+// FIXED IMPORT: Path folder dengan spasi dan tanda kurung
+import KPIDashboard from "./SCM Perf. (KPI)/KPIDashboard";
 
 /* --- IMPORT MODUL LAINNYA --- */
 import OilDashboard from "./Oil Consumption/OilDashboard";
@@ -119,21 +110,10 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Navigate to="/login" replace />} />
 
-      {/* --- DASHBOARD FIELD --- */}
-      <Route path="/dashboard-ho" element={<ProtectedField field="ho"><DashboardSCMCircle /></ProtectedField>} />
-      <Route path="/dashboard-jatibarang" element={<ProtectedField field="jatibarang"><DashboardJatibarang /></ProtectedField>} />
-      <Route path="/dashboard-jatiasri" element={<ProtectedField field="jatiasri"><DashboardJatiasri /></ProtectedField>} />
-      <Route path="/dashboard-tambun" element={<ProtectedField field="tambun"><DashboardTambun /></ProtectedField>} />
-      <Route path="/dashboard-onwj" element={<ProtectedField field="onwj"><DashboardONWJ /></ProtectedField>} />
-      <Route path="/dashboard-sangasanga" element={<ProtectedField field="sangasanga"><DashboardSangasanga /></ProtectedField>} />
-      <Route path="/dashboard-tarakan" element={<ProtectedField field="tarakan"><DashboardTarakan /></ProtectedField>} />
-      <Route path="/dashboard-kampar" element={<ProtectedField field="kampar"><DashboardKampar /></ProtectedField>} />
-      <Route path="/dashboard-langkap" element={<ProtectedField field="langkap"><DashboardLangkap /></ProtectedField>} />
-      <Route path="/dashboard-tmb" element={<ProtectedField field="tmb"><DashboardTMB /></ProtectedField>} />
-      <Route path="/dashboard-limau" element={<ProtectedField field="limau"><DashboardLimau /></ProtectedField>} />
-      <Route path="/dashboard-kemala" element={<ProtectedField field="kemala"><DashboardKemala /></ProtectedField>} />
+      {/* --- DASHBOARD UTAMA (PUSAT LINGKARAN) --- */}
+      <Route path="/dashboard-scm" element={<ProtectedField><DashboardSCMCircle /></ProtectedField>} />
 
-      {/* --- MODUL ROUTES --- */}
+      {/* --- MODUL ROUTES: INVENTORY --- */}
       <Route path="/dashboard-inventory" element={<ProtectedField><DashboardInventory /></ProtectedField>} />
       <Route path="/inventory" element={<ProtectedField><Inventory /></ProtectedField>} />
       <Route path="/barang-masuk" element={<ProtectedField><BarangMasuk /></ProtectedField>} />
@@ -146,6 +126,7 @@ export default function App() {
       <Route path="/field-manager" element={<ProtectedField field="admin"><FieldManager /></ProtectedField>} />
       <Route path="/stock-opname" element={<ProtectedField><StockOpname /></ProtectedField>} />
 
+      {/* --- MODUL ROUTES: STOCK OPNAME --- */}
       <Route path="/dashboard-stock-opname" element={<ProtectedField><DashboardStockOpname /></ProtectedField>} />
       <Route path="/stock-opname-field" element={<ProtectedField><StockOpnameField /></ProtectedField>} />
       <Route path="/stock-opname-report" element={<ProtectedField><StockOpnameReport /></ProtectedField>} />
@@ -153,6 +134,7 @@ export default function App() {
       <Route path="/stock-opname-workshop" element={<ProtectedField><StockOpnameWorkshop /></ProtectedField>} />
       <Route path="/stock-variance" element={<ProtectedField><StockVariance /></ProtectedField>} />
 
+      {/* --- MODUL ROUTES: FIELD INVENTORY --- */}
       <Route path="/field-inventory-dashboard" element={<ProtectedField><FieldInventoryDashboard /></ProtectedField>} />
       <Route path="/field-assets" element={<ProtectedField><FieldAssets /></ProtectedField>} />
       <Route path="/field-critical-stock" element={<ProtectedField><FieldCriticalStock /></ProtectedField>} />
@@ -161,10 +143,12 @@ export default function App() {
       <Route path="/field-request" element={<ProtectedField><FieldRequest /></ProtectedField>} />
       <Route path="/field-stock-status" element={<ProtectedField><FieldStockStatus /></ProtectedField>} />
 
+      {/* --- MODUL ROUTES: ASSET & LOCATION --- */}
       <Route path="/asset-locations-dashboard" element={<ProtectedField><AssetLocationDashboard /></ProtectedField>} />
       <Route path="/asset-by-location" element={<ProtectedField><AssetByLocation /></ProtectedField>} />
       <Route path="/location-master" element={<ProtectedField><LocationMaster /></ProtectedField>} />
 
+      {/* --- MODUL ROUTES: PREVENTIVE MAINTENANCE --- */}
       <Route path="/dashboard-pm" element={<ProtectedField><DashboardPM /></ProtectedField>} />
       <Route path="/pm-unit-list" element={<ProtectedField><PMUnitList /></ProtectedField>} />
       <Route path="/pm-schedule" element={<ProtectedField><PMSchedule /></ProtectedField>} />
@@ -172,6 +156,7 @@ export default function App() {
       <Route path="/pm-reminder" element={<ProtectedField><PMReminder /></ProtectedField>} />
       <Route path="/pm-history" element={<ProtectedField><PMHistory /></ProtectedField>} />
 
+      {/* --- MODUL ROUTES: PSV MANAGEMENT --- */}
       <Route path="/dashboard-psv" element={<ProtectedField><DashboardPSV /></ProtectedField>} />
       <Route path="/psv-list" element={<ProtectedField><PSVList /></ProtectedField>} />
       <Route path="/psv-status" element={<ProtectedField><PSVStatus /></ProtectedField>} />
@@ -180,6 +165,7 @@ export default function App() {
       <Route path="/psv-set-pressure" element={<ProtectedField><PSVSetPressure /></ProtectedField>} />
       <Route path="/psv-certificate" element={<ProtectedField><PSVCertificate /></ProtectedField>} />
 
+      {/* --- MODUL ROUTES: INSTRUMEN --- */}
       <Route path="/dashboard-instrumen" element={<ProtectedField><DashboardInstrumen /></ProtectedField>} />
       <Route path="/instrument-list" element={<ProtectedField><InstrumentList /></ProtectedField>} />
       <Route path="/calibration-certificate" element={<ProtectedField><CalibrationCertificate /></ProtectedField>} />
@@ -187,14 +173,17 @@ export default function App() {
       <Route path="/calibration-schedule" element={<ProtectedField><CalibrationSchedule /></ProtectedField>} />
       <Route path="/calibration-reminder" element={<ProtectedField><CalibrationReminder /></ProtectedField>} />
 
+      {/* --- MODUL ROUTES: SASARAN MUTU & KPI --- */}
       <Route path="/sasaran-dashboard" element={<ProtectedField><SasaranDashboard /></ProtectedField>} />
       <Route path="/sasaran-formula" element={<ProtectedField><SasaranFormula /></ProtectedField>} />
+      <Route path="/kpi-dashboard" element={<ProtectedField><KPIDashboard /></ProtectedField>} />
 
+      {/* --- MODUL ROUTES: LAINNYA --- */}
       <Route path="/oil-dashboard" element={<ProtectedField><OilDashboard /></ProtectedField>} />
       <Route path="/procurement-dashboard" element={<ProtectedField><ProcurementDashboard /></ProtectedField>} />
       <Route path="/sop-scm" element={<ProtectedField><SOPDashboard /></ProtectedField>} />
       
-      {/* --- ROUTES SEMUA MODUL SOP BARU --- */}
+      {/* ROUTES SOP VIEWER */}
       <Route path="/sop-audit" element={<ProtectedField><SOPViewerPage title="Prosedur SCM" folderId="16rzubeW6OkLu081ukVWK0KBxHlvFve21" /></ProtectedField>} /> 
       <Route path="/sop-file-list" element={<ProtectedField><SOPViewerPage title="Form SCM" folderId="1mSpCnySE58pmosB0t-ypcKWGl3H4QGg0" /></ProtectedField>} /> 
       <Route path="/sop-file-viewer" element={<ProtectedField><SOPViewerPage title="Sasaran Target Program" folderId="1Rl6g8K8KhMJJKt8FJSAFzwwn9gRbSKz6" /></ProtectedField>} /> 
@@ -207,6 +196,7 @@ export default function App() {
       <Route path="/quarter-dashboard" element={<ProtectedField><QuarterDashboard /></ProtectedField>} />
       <Route path="/reset-database" element={<ProtectedField field="admin"><ResetDatabase /></ProtectedField>} />
 
+      {/* --- CATCH ALL: REDIRECT TO LOGIN --- */}
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );

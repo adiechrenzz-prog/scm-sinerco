@@ -23,7 +23,6 @@ export default function CalibrationHistory() {
     remarks: ""
   });
 
-  // ========================= 1. LOAD DATA =========================
   useEffect(() => {
     const instRef = ref(database, "instrumentList");
     onValue(instRef, (snap) => {
@@ -42,7 +41,6 @@ export default function CalibrationHistory() {
     });
   }, []);
 
-  // ========================= 2. HANDLERS =========================
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "noUnit") {
@@ -84,7 +82,6 @@ export default function CalibrationHistory() {
     String(h.instrumentName).toLowerCase().includes(search.toLowerCase())
   );
 
-  // ========================= 3. EXPORTS =========================
   const exportExcel = () => {
     const ws = XLSX.utils.json_to_sheet(filtered);
     const wb = XLSX.utils.book_new();
@@ -99,7 +96,6 @@ export default function CalibrationHistory() {
         <button style={styles.btnLog} onClick={() => { signOut(auth); navigate("/login"); }}>Logout</button>
       </div>
 
-      {/* NAVIGASI LENGKAP - TOMBOL KE SEMUA MENU */}
       <div style={styles.fullNavBar}>
         <div style={styles.navGroup}>
           <span style={styles.navLabel}>CALIBRATION MENU</span>
@@ -114,7 +110,6 @@ export default function CalibrationHistory() {
         </div>
       </div>
 
-      {/* FORM LOG RIWAYAT */}
       <div style={styles.card}>
         <h4 style={{marginTop:0}}>➕ Catat Kalibrasi Baru</h4>
         <div style={styles.formGrid}>
@@ -150,7 +145,6 @@ export default function CalibrationHistory() {
         <button style={styles.btnPrimary} onClick={saveHistory}>Simpan Riwayat</button>
       </div>
 
-      {/* TOOLBAR */}
       <div style={styles.toolbar}>
         <input 
           placeholder="🔍 Cari No Unit / Nama..." 
@@ -161,7 +155,6 @@ export default function CalibrationHistory() {
         <button style={styles.btnExcel} onClick={exportExcel}>Export Excel</button>
       </div>
 
-      {/* TABEL */}
       <div style={styles.card}>
         <table style={styles.table}>
           <thead>
@@ -216,6 +209,7 @@ const styles = {
   td: { padding: "12px", fontSize: "12px", borderBottom: "1px solid #eee" },
   btnPrimary: { background: "#7b003f", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "5px", cursor: "pointer" },
   btnDel: { background: "#dc3545", color: "#fff", border: "none", padding: "5px 10px", borderRadius: "4px", cursor: "pointer", fontSize: '11px' },
-  btnExcel: { background: "#157347", color: "#fff", border: "none", padding: "10px 15px", borderRadius: "5px", cursor: "pointer", color: "white" },
+  // FIX: Menghapus duplikat properti color
+  btnExcel: { background: "#157347", color: "white", border: "none", padding: "10px 15px", borderRadius: "5px", cursor: "pointer" },
   btnLog: { background: "#333", color: "#fff", border: "none", padding: "8px 15px", borderRadius: "5px", cursor: "pointer" }
 };

@@ -3,7 +3,7 @@ import { signOut, onAuthStateChanged } from "firebase/auth";
 import { auth } from "./firebase";
 import { useNavigate } from "react-router-dom";
 
-// Konfigurasi Menu (Sama dengan Jatibarang)
+// Konfigurasi Menu
 const menus = [
   { label: "Inventory", path: "/inventory" },
   { label: "Instrument Cal.", path: "/instrument-list" },
@@ -44,6 +44,8 @@ export default function DashboardJatiasri() {
 
   const handleLogout = async () => {
     try {
+      // Membersihkan cache role untuk mencegah throttling/looping
+      localStorage.removeItem("user_field_data");
       await signOut(auth);
       navigate("/login", { replace: true });
     } catch (error) {
@@ -144,6 +146,7 @@ export default function DashboardJatiasri() {
           font-size: 13px;
           font-weight: 700;
           pointer-events: none;
+          transition: fill 0.3s;
         }
         .menu-node:hover .node-label {
           fill: #fff;
@@ -162,6 +165,7 @@ export default function DashboardJatiasri() {
           font-size: 12px;
           z-index: 10;
           box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          transition: background 0.2s;
         }
         .btn-logout-mini:hover {
           background: #7a163e;
@@ -176,8 +180,10 @@ export default function DashboardJatiasri() {
 
       <div className="svg-wrapper">
         <svg viewBox={`0 0 ${size} ${size}`} className="main-svg">
+          {/* Jalur Lingkaran */}
           <circle cx={center} cy={center} r={radius} className="orbit-path" />
 
+          {/* Garis Penghubung */}
           {menus.map((_, i) => {
             const angle = i * angleStep - Math.PI / 2;
             const x = center + radius * Math.cos(angle);
@@ -185,6 +191,7 @@ export default function DashboardJatiasri() {
             return <line key={i} x1={center} y1={center} x2={x} y2={y} className="connector-line" />;
           })}
 
+          {/* Pusat (Hub) */}
           <g className="center-hub">
             <circle cx={center} cy={center} r="145" className="hub-circle" />
             <text x={center} y={center} textAnchor="middle" className="hub-text">
@@ -193,19 +200,25 @@ export default function DashboardJatiasri() {
             </text>
           </g>
 
+          {/* Item Menu */}
           {menus.map((m, i) => {
             const angle = i * angleStep - Math.PI / 2;
             const x = center + radius * Math.cos(angle);
             const y = center + radius * Math.sin(angle);
             const words = m.label.split(" ");
+            const totalLines = words.length;
 
             return (
               <g key={i} className="menu-node" onClick={() => navigate(m.path)}>
                 <circle cx={x} cy={y} r="75" className="node-circle" />
                 <text x={x} y={y} textAnchor="middle" className="node-label">
-                  {words.map((word, idx) => (
-                    <tspan x={x} dy={idx === 0 ? "5" : "22"} key={idx}>{word}</tspan>
-                  ))}
+                  {words.map((word, idx) => {
+                    // Kalkulasi posisi vertikal teks agar selalu di tengah lingkaran
+                    const dyOffset = idx === 0 ? -( (totalLines - 1) * 10 ) + 5 : 22;
+                    return (
+                      <tspan x={x} dy={dyOffset} key={idx}>{word}</tspan>
+                    );
+                  })}
                 </text>
               </g>
             );

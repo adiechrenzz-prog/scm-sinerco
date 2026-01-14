@@ -24,10 +24,10 @@ export default function DashboardInventory() {
 
   return (
     <div className="inv-dash-wrapper">
-      {/* Tombol Back */}
+      {/* PERBAIKAN: Navigasi diarahkan ke /dashboard-scm */}
       <button 
         className="inv-dash-back-btn" 
-        onClick={() => navigate("/dashboard-ho")}
+        onClick={() => navigate("/dashboard-scm")}
       >
         ← BACK TO HOME
       </button>

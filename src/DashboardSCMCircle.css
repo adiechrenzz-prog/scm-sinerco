@@ -1,8 +1,8 @@
-/* Container Utama: Background Cerah Profesional */
+/* Container Utama */
 .dashboard-container {
   width: 100vw;
   height: 100vh;
-  background: #f1f5f9; /* Soft Grey-Blue */
+  background: #f1f5f9;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -11,7 +11,7 @@
   font-family: 'Inter', sans-serif;
 }
 
-/* Wrapper agar SVG tetap di tengah dan responsif */
+/* Wrapper SVG */
 .svg-wrapper {
   width: 90vmin;
   height: 90vmin;
@@ -23,7 +23,7 @@
   overflow: visible;
 }
 
-/* Garis Pemandu */
+/* Garis Pemandu Orbit */
 .orbit-path {
   fill: none;
   stroke: #cbd5e1;
@@ -31,15 +31,16 @@
   stroke-dasharray: 8 4;
 }
 
+/* Garis Konektor */
 .connector-line {
   stroke: #941b4c;
   stroke-width: 1.5;
   opacity: 0.15;
 }
 
-/* Styling Hub Tengah */
+/* Pusat Hub */
 .hub-circle {
-  fill: #941b4c; /* Warna Maroon */
+  fill: #941b4c;
   stroke: #ffffff;
   stroke-width: 4;
   filter: drop-shadow(0 8px 15px rgba(148, 27, 76, 0.3));
@@ -58,7 +59,7 @@
   opacity: 0.9;
 }
 
-/* Styling Node Menu */
+/* Node Menu */
 .node-circle {
   fill: #ffffff;
   stroke: #941b4c;
@@ -68,14 +69,14 @@
 }
 
 .node-label {
-  fill: #1e293b; /* Warna teks gelap agar jelas */
-  font-size: 16px;
+  fill: #1e293b;
+  font-size: 14px; /* Sedikit dikecilkan agar teks panjang muat */
   font-weight: 700;
   text-transform: uppercase;
   pointer-events: none;
 }
 
-/* Hover Animasi */
+/* Hover Effects */
 .menu-node:hover .node-circle {
   fill: #941b4c;
   stroke: #ffffff;
@@ -87,7 +88,7 @@
   fill: #ffffff;
 }
 
-/* Tombol Logout Mini */
+/* Tombol Logout */
 .btn-logout-mini {
   position: absolute;
   top: 25px;

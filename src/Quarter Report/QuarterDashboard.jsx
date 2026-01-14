@@ -19,7 +19,8 @@ export default function QuarterDashboard() {
 
   return (
     <div className="q-wrapper">
-      <button className="q-back-btn" onClick={() => navigate("/dashboard-ho")}>
+      {/* PERBAIKAN: Navigasi diubah ke /dashboard-scm agar sesi tetap aman */}
+      <button className="q-back-btn" onClick={() => navigate("/dashboard-scm")}>
         ← BACK
       </button>
 

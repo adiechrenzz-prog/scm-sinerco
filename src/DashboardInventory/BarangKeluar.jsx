@@ -9,7 +9,6 @@ export default function BarangKeluar() {
   const [isLoading, setIsLoading] = useState(false);
   const hasFetched = useRef(false);
 
-  // Link Spreadsheet Barang Keluar (GID 568762200)
   const SPREADSHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRB7U6oyLsL5DcXW5cja8gY60PcTBX0v-KxnR1rRaXM6cJCRAO8JZQ-H9FjTiCRG49m5IHR2dcX8fuB/pub?gid=568762200&single=true&output=csv";
   const SPREADSHEET_EDIT_URL = "https://docs.google.com/spreadsheets/d/1RB7U6oyLsL5DcXW5cja8gY60PcTBX0v-KxnR1rRaXM6cJCRAO8JZQ-H9FjTiCRG49m5IHR2dcX8fuB/edit#gid=568762200";
 
@@ -20,6 +19,15 @@ export default function BarangKeluar() {
 
   const [backupData, setBackupData] = useState([]);
 
+  // Fungsi pembantu untuk membersihkan string ke angka
+  const cleanNumber = (val) => {
+    if (!val) return 0;
+    // Hapus Rp, titik ribuan, dan spasi
+    const sanitized = String(val).replace(/[Rp.\s]/g, "").replace(/,/g, ".");
+    const num = parseFloat(sanitized);
+    return isNaN(num) ? 0 : num;
+  };
+
   const mapDataToState = useCallback((rawData) => {
     return rawData.map((row, index) => {
       const getVal = (keywords) => {
@@ -29,11 +37,16 @@ export default function BarangKeluar() {
         return key ? String(row[key]).trim() : "";
       };
 
+      const qty = cleanNumber(getVal(["stok", "qty", "jumlah"]));
+      const hargaSatuan = cleanNumber(getVal(["harga satuan", "harga", "price"]));
+
       return {
         id: getVal(["id barang", "id"]) || `OUT-${index + 1}`,
         namaBarang: getVal(["nama barang"]),
         satuan: getVal(["satuan"]),
-        stok: getVal(["stok", "qty", "jumlah"]),
+        stok: qty,
+        hargaSatuan: hargaSatuan,
+        totalHarga: qty * hargaSatuan,
         gudang: getVal(["gudang"]),
         tanggal: getVal(["tanggal"]),
         doNo: getVal(["do no.", "do number", "nomor do"])
@@ -51,12 +64,10 @@ export default function BarangKeluar() {
       const rawData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { defval: "" });
       
       const finalData = mapDataToState(rawData);
-      if (finalData.length > 0) {
-        setKeluarData(finalData);
-        localStorage.setItem("scm_barang_keluar_data", JSON.stringify(finalData));
-      }
+      setKeluarData(finalData);
+      localStorage.setItem("scm_barang_keluar_data", JSON.stringify(finalData));
     } catch (error) {
-      console.error("Gagal sinkron barang keluar:", error);
+      console.error("Gagal sinkron:", error);
     } finally {
       setTimeout(() => setIsLoading(false), 500);
     }
@@ -70,15 +81,32 @@ export default function BarangKeluar() {
   }, [refreshFromCloud]);
 
   const handleCellChange = (id, field, value) => {
-    setKeluarData(prev => prev.map(item => 
-      item.id === id ? { ...item, [field]: value } : item
-    ));
+    setKeluarData(prev => prev.map(item => {
+      if (item.id === id) {
+        const updatedItem = { ...item, [field]: value };
+        const newQty = cleanNumber(updatedItem.stok);
+        const newHarga = cleanNumber(updatedItem.hargaSatuan);
+        updatedItem.totalHarga = newQty * newHarga;
+        return updatedItem;
+      }
+      return item;
+    }));
   };
 
   const saveChanges = () => {
     localStorage.setItem("scm_barang_keluar_data", JSON.stringify(keluarData));
     setIsEditing(false);
-    alert("Data Barang Keluar Berhasil Disimpan!");
+    alert("Data Berhasil Disimpan!");
+  };
+
+  const grandTotalHarga = keluarData.reduce((acc, item) => acc + (Number(item.totalHarga) || 0), 0);
+
+  const formatRupiah = (number) => {
+    return new Intl.NumberFormat("id-ID", {
+      style: "currency",
+      currency: "IDR",
+      minimumFractionDigits: 0
+    }).format(number || 0);
   };
 
   return (
@@ -89,7 +117,7 @@ export default function BarangKeluar() {
           {!isEditing ? (
             <>
               <a href={SPREADSHEET_EDIT_URL} target="_blank" rel="noopener noreferrer">
-                <button style={{ backgroundColor: '#1d6f42', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px', cursor: 'pointer' }}>🌐 Spreadsheet</button>
+                <button style={{ backgroundColor: '#1d6f42', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '5px' }}>🌐 Spreadsheet</button>
               </a>
               <button onClick={refreshFromCloud} disabled={isLoading} style={{ backgroundColor: "#f1c40f", border: "none", padding: "8px 15px", borderRadius: "5px", fontWeight: "bold" }}>
                 {isLoading ? "🔄..." : "☁️ Sync Cloud"}
@@ -105,17 +133,25 @@ export default function BarangKeluar() {
         </div>
       </div>
 
-      <h2 style={{ textAlign: 'center', margin: '20px 0' }}>LOG BARANG KELUAR</h2>
+      <h2 style={{ textAlign: 'center', margin: '20px 0 10px 0' }}>LOG BARANG KELUAR</h2>
+
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px', padding: '0 20px' }}>
+        <div style={{ backgroundColor: '#2c3e50', color: '#2ecc71', padding: '15px 40px', borderRadius: '8px', textAlign: 'center', border: '1px solid #27ae60' }}>
+          <span style={{ fontSize: '12px', display: 'block', color: '#bdc3c7', textTransform: 'uppercase' }}>Total Nilai Barang Keluar</span>
+          <span style={{ fontSize: '26px', fontWeight: 'bold' }}>{formatRupiah(grandTotalHarga)}</span>
+        </div>
+      </div>
 
       <div className="table-responsive" style={{ padding: '0 20px', overflowX: 'auto' }}>
-        <table className="kpi-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '13px' }}>
+        <table className="kpi-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '12px' }}>
           <thead style={{ backgroundColor: '#2c3e50', color: 'white' }}>
             <tr>
               <th style={{ border: '1px solid #444', padding: '10px' }}>ID Barang</th>
               <th style={{ border: '1px solid #444', padding: '10px' }}>Nama Barang</th>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>Qty</th>
               <th style={{ border: '1px solid #444', padding: '10px' }}>Satuan</th>
-              <th style={{ border: '1px solid #444', padding: '10px' }}>Qty Keluar</th>
-              <th style={{ border: '1px solid #444', padding: '10px' }}>Gudang</th>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>Harga Satuan</th>
+              <th style={{ border: '1px solid #444', padding: '10px' }}>Total Harga</th>
               <th style={{ border: '1px solid #444', padding: '10px' }}>Tanggal</th>
               <th style={{ border: '1px solid #444', padding: '10px' }}>Do No.</th>
             </tr>
@@ -124,18 +160,19 @@ export default function BarangKeluar() {
             {keluarData.map((item) => (
               <tr key={item.id} style={{ backgroundColor: '#fff' }}>
                 <td style={{ border: '1px solid #ddd', textAlign: 'center', padding: '8px' }}>{item.id}</td>
-                <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-                  {isEditing ? <input style={{width:'100%'}} value={item.namaBarang} onChange={e => handleCellChange(item.id, "namaBarang", e.target.value)} /> : item.namaBarang}
+                <td style={{ border: '1px solid #ddd', padding: '8px' }}>{item.namaBarang}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>
+                  {isEditing ? <input type="number" style={{width:'50px'}} value={item.stok} onChange={e => handleCellChange(item.id, "stok", e.target.value)} /> : item.stok}
                 </td>
                 <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.satuan}</td>
-                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>
-                  {isEditing ? <input type="number" style={{width:'60px'}} value={item.stok} onChange={e => handleCellChange(item.id, "stok", e.target.value)} /> : item.stok}
+                <td style={{ border: '1px solid #ddd', textAlign: 'right', padding: '8px' }}>
+                  {isEditing ? <input type="number" style={{width:'80px'}} value={item.hargaSatuan} onChange={e => handleCellChange(item.id, "hargaSatuan", e.target.value)} /> : formatRupiah(item.hargaSatuan)}
                 </td>
-                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.gudang}</td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'right', padding: '8px', fontWeight: 'bold', backgroundColor: '#f9f9f9' }}>
+                  {formatRupiah(item.totalHarga)}
+                </td>
                 <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.tanggal}</td>
-                <td style={{ border: '1px solid #ddd', textAlign: 'center', fontWeight: 'bold' }}>
-                  {isEditing ? <input style={{width:'100%'}} value={item.doNo} onChange={e => handleCellChange(item.id, "doNo", e.target.value)} /> : item.doNo}
-                </td>
+                <td style={{ border: '1px solid #ddd', textAlign: 'center' }}>{item.doNo}</td>
               </tr>
             ))}
           </tbody>

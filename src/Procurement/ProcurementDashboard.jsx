@@ -19,16 +19,19 @@ export default function ProcurementDashboard() {
 
   return (
     <div className="proc-wrapper">
-      <button className="proc-back-btn" onClick={() => navigate("/dashboard-ho")}>
+      {/* PERBAIKAN: Navigasi diubah ke /dashboard-scm untuk menjaga sesi login */}
+      <button className="proc-back-btn" onClick={() => navigate("/dashboard-scm")}>
         ← BACK TO MAIN
       </button>
 
       <svg viewBox={`0 0 ${size} ${size}`} className="proc-svg" width="85vmin" height="85vmin">
+        {/* Lingkaran Pusat */}
         <circle cx={center} cy={center} r="160" className="proc-center-circle" />
         <text x={center} y={center} textAnchor="middle" className="proc-center-text">
           <tspan x={center} dy="10">PROCUREMENT</tspan>
         </text>
 
+        {/* Menu Nodes & Lines */}
         {procurementMenus.map((m, i) => {
           const angle = i * angleStep - Math.PI / 2;
           const x = center + radius * Math.cos(angle);

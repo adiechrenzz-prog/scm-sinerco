@@ -20,11 +20,16 @@ export default function DashboardStockOpname() {
 
   return (
     <div className="opname-dash-wrapper">
-      <button className="opname-dash-back-btn" onClick={() => navigate("/dashboard-ho")}>
+      {/* PERBAIKAN: Navigasi diubah ke /dashboard-scm untuk menjaga sesi login */}
+      <button 
+        className="opname-dash-back-btn" 
+        onClick={() => navigate("/dashboard-scm")}
+      >
         ← BACK TO HOME
       </button>
 
       <svg viewBox={`0 0 ${size} ${size}`} className="opname-dash-svg" width="85vmin" height="85vmin">
+        {/* Connector Lines */}
         {opnameMenus.map((_, i) => {
           const angle = i * angleStep - Math.PI / 2;
           const x = center + radius * Math.cos(angle);
@@ -32,6 +37,7 @@ export default function DashboardStockOpname() {
           return <line key={`line-${i}`} x1={center} y1={center} x2={x} y2={y} className="opname-dash-line" />;
         })}
 
+        {/* Center Hub */}
         <g style={{ pointerEvents: "none" }}>
           <circle cx={center} cy={center} r="160" className="opname-dash-center-circle" />
           <text x={center} y={center} textAnchor="middle" className="opname-dash-center-text">
@@ -40,6 +46,7 @@ export default function DashboardStockOpname() {
           </text>
         </g>
 
+        {/* Menu Nodes */}
         {opnameMenus.map((m, i) => {
           const angle = i * angleStep - Math.PI / 2;
           const x = center + radius * Math.cos(angle);

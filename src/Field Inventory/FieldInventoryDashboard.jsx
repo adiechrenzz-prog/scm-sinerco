@@ -21,10 +21,10 @@ export default function FieldInventoryDashboard() {
 
   return (
     <div className="field-inv-wrapper">
-      {/* Tombol Back dengan proteksi Z-Index */}
+      {/* PERBAIKAN: Navigasi diubah ke /dashboard-scm */}
       <button 
         className="field-inv-back-btn" 
-        onClick={() => navigate("/dashboard-ho")}
+        onClick={() => navigate("/dashboard-scm")}
         style={{ zIndex: 1000, cursor: "pointer", position: "relative" }}
       >
         ← BACK TO HOME
@@ -81,7 +81,7 @@ export default function FieldInventoryDashboard() {
               {/* Lingkaran sebagai area klik utama */}
               <circle cx={x} cy={y} r="110" fill="white" stroke="#800000" strokeWidth="3" className="node-circle" />
               
-              {/* Teks - pointerEvents none agar tidak mengganggu event klik circle */}
+              {/* Teks */}
               <text 
                 x={x} 
                 y={y} 

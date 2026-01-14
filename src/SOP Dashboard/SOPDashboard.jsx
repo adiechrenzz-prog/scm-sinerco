@@ -21,8 +21,8 @@ export default function SOPDashboard() {
 
   return (
     <div className="sop-wrapper">
-      {/* Tombol Back ke Dashboard Utama */}
-      <button className="back-button" onClick={() => navigate("/dashboard-ho")}>
+      {/* PERBAIKAN: Mengarahkan ke rute yang benar agar tidak dianggap error/logout */}
+      <button className="back-button" onClick={() => navigate("/dashboard-scm")}>
         ← BACK TO DASHBOARD
       </button>
 
@@ -59,6 +59,7 @@ export default function SOPDashboard() {
               key={i}
               className="sop-node"
               onClick={() => navigate(m.path)}
+              style={{ cursor: "pointer" }}
             >
               <circle cx={x} cy={y} r="95" />
               <text x={x} y={y + 8} textAnchor="middle" className="sop-node-text">

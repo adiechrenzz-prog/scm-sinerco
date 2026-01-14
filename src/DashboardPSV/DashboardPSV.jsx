@@ -21,10 +21,10 @@ export default function DashboardPSV() {
 
   return (
     <div className="psv-dash-wrapper">
-      {/* Tombol Kembali */}
+      {/* PERBAIKAN: Mengarahkan kembali ke dashboard utama SCM */}
       <button 
         className="psv-dash-back-btn" 
-        onClick={() => navigate("/dashboard-ho")}
+        onClick={() => navigate("/dashboard-scm")}
       >
         ← BACK TO HOME
       </button>
